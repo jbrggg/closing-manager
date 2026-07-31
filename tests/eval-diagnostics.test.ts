@@ -217,7 +217,7 @@ function resultWith(match: MatchEvidence | null, duplicateFlagged = false): Eval
     group: "case",
     passed: false,
     findings: [],
-    observed: { facts: [], tasks: [], filing: "new", duplicateFlagged, match },
+    observed: { facts: [], tasks: [], filing: "new", duplicateFlagged, addressOnlyLink: false, match },
     elapsedMs: 1,
   };
 }

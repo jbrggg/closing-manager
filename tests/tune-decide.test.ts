@@ -13,7 +13,7 @@ function result(id: string, passed: boolean, failures: string[] = []): EvalCaseR
     group: id,
     passed,
     findings: failures.map((detail) => ({ ok: false, kind: "fact" as const, detail })),
-    observed: { facts: [], tasks: [], filing: "new", duplicateFlagged: false, match: null },
+    observed: { facts: [], tasks: [], filing: "new", duplicateFlagged: false, addressOnlyLink: false, match: null },
     elapsedMs: 1,
   };
 }
