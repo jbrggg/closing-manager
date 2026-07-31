@@ -177,6 +177,7 @@ Useful variations:
 | `npm run eval` | Score every email in `cases/` using the real AI |
 | `npm run eval -- --simulated` | Use the free built-in word-matcher instead. Costs nothing. Good for checking your test files are written correctly before spending money. |
 | `npm run eval -- --only ridgeview` | Only run emails whose `id` contains "ridgeview" |
+| `npm run eval -- --group larkin` | Run one whole deal, in order. **Use this rather than `--only` when a deal has several emails** — filtering a group down to one email makes the "did it file under the right property?" check meaningless |
 | `npm run eval -- --jobs 8` | Run 8 emails at a time instead of 4 (faster, but more likely to hit a rate limit) |
 
 The scorecard prints to the screen and is also saved to `evals/last-run.md`,

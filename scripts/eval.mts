@@ -4,6 +4,7 @@
  *   npm run eval                 read every email in evals/cases/ and score it
  *   npm run eval -- --simulated  same, but using the free built-in word-matcher
  *   npm run eval -- --only a2    only run cases whose id contains "a2"
+ *   npm run eval -- --group larkin   run one whole deal, in order
  *   npm run eval -- --jobs 8     run 8 emails at a time (default 4)
  *
  * This replaces the old way of checking accuracy, which was: start the app,
@@ -52,6 +53,7 @@ function option(name: string, fallback: string): string {
 
 const useSimulated = flag("simulated");
 const only = option("only", "");
+const onlyGroup = option("group", "");
 const jobs = Math.max(1, Number(option("jobs", "4")) || 4);
 
 // --- load cases --------------------------------------------------------------
@@ -111,10 +113,15 @@ function readCaseFile(file: string): EvalCase[] {
 
 const allCases: EvalCase[] = findCaseFiles(CASES_DIR)
   .flatMap(readCaseFile)
+  // --only filters by case id. --group keeps a whole deal together, which is
+  // what you want when checking that a later email files under an earlier one:
+  // filtering a group down to one member makes the filing check meaningless.
+  .filter((c) => !onlyGroup || (c.group ?? "").toLowerCase().includes(onlyGroup.toLowerCase()))
   .filter((c) => !only || c.id.toLowerCase().includes(only.toLowerCase()));
 
 if (allCases.length === 0) {
-  console.error(only ? `No cases matched "${only}".` : `No cases found in ${CASES_DIR}.`);
+  const filter = [only && `--only "${only}"`, onlyGroup && `--group "${onlyGroup}"`].filter(Boolean).join(" ");
+  console.error(filter ? `No cases matched ${filter}.` : `No cases found in ${CASES_DIR}.`);
   process.exit(2);
 }
 
