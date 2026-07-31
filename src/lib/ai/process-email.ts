@@ -11,6 +11,25 @@ import { EmailMessageRow, ExtractedFactRow } from "@/types/models";
 
 const ORG_ID = "org-demo"; // single-tenant demo; organizationId is threaded everywhere for future multi-tenant use
 
+/**
+ * The fact types `src/lib/ai/match.ts` actually scores on.
+ *
+ * Declared here rather than in match.ts because that file is covered by
+ * invariant 4 and is not edited without asking. It exists so the filing
+ * diagnostic can report what an email offered up to be matched on.
+ * `tests/eval-diagnostics.test.ts` asserts this list still equals the set of
+ * types match.ts scores, so adding a signal there and forgetting this fails a
+ * test rather than silently producing a misleading diagnosis.
+ */
+export const MATCHED_FACT_TYPES = [
+  "PROPERTY_ADDRESS",
+  "FILE_NUMBER",
+  "LOAN_NUMBER",
+  "BUYER_NAME",
+  "SELLER_NAME",
+  "CLOSING_LOCATION",
+] as const;
+
 /** How many messages to read at once. Keeps a long thread from firing dozens
  *  of simultaneous API requests and tripping the provider's rate limit. */
 const MAX_PARALLEL_AI_CALLS = 5;
@@ -157,6 +176,34 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
     let transactionId: string;
     let ambiguousDuplicateCandidateId: string | null = null;
 
+    // Structured evidence for *why* this email landed where it did. The summary
+    // line below already says the score in prose; this records the same decision
+    // in a machine-readable form so `npm run diagnose` can explain a wrong-file
+    // result without anyone having to re-read the code. Recording it changes no
+    // behaviour — nothing reads this back during processing — and deliberately
+    // does not touch `match.ts` (invariant 4).
+    const matchDetail = {
+      score: matchResult.score,
+      isStrongMatch: matchResult.isStrongMatch,
+      reasons: matchResult.reasons,
+      bestCandidateTransactionId: matchResult.transaction?.id ?? null,
+      transactionsConsidered:
+        get<{ n: number }>(`SELECT COUNT(*) as n FROM TransactionRecord WHERE organizationId = ?`, [ORG_ID])?.n ?? 0,
+      // The identifying facts this email offered up for matching. A score of 0
+      // means one of two very different things — nothing to compare against, or
+      // nothing extracted to compare with — and only this tells them apart.
+      // Deduped by type+value the same way match.ts dedupes before scoring, so
+      // the diagnostic shows one address rather than the same one three times
+      // over because the thread and the mailbox search both turned it up.
+      identifiersExtracted: Object.values(
+        Object.fromEntries(
+          taggedFacts
+            .filter((f) => (MATCHED_FACT_TYPES as readonly string[]).includes(f.factType))
+            .map((f) => [`${f.factType}::${String(f.value)}`, { type: f.factType, value: String(f.value) }])
+        )
+      ),
+    };
+
     if (matchResult.isStrongMatch && matchResult.transaction) {
       transactionId = matchResult.transaction.id;
       recordAudit({
@@ -165,6 +212,7 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
         entityType: "TransactionRecord",
         entityId: transactionId,
         summary: `Matched existing transaction (score ${matchResult.score}): ${matchResult.reasons.join("; ")}`,
+        detail: matchDetail,
         actorType: "AI",
       });
     } else {
@@ -187,6 +235,7 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
         summary: ambiguousDuplicateCandidateId
           ? `No strong match found (best score ${matchResult.score}) — created new potential transaction; flagged possible duplicate for review`
           : "No existing transaction matched — created new potential transaction",
+        detail: matchDetail,
         actorType: "AI",
       });
     }

@@ -16,10 +16,10 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { all, run, nowIso } from "@/lib/db";
-import { processEmailMessage } from "@/lib/ai/process-email";
+import { processEmailMessage, MATCHED_FACT_TYPES } from "@/lib/ai/process-email";
 import { getActiveAIProvider } from "@/lib/ai";
 import { getUsageStats } from "@/lib/ai/llm-provider";
-import type { EvalCase, EvalCaseResult, Finding } from "./eval-types.mts";
+import type { EvalCase, EvalCaseResult, Finding, Identifier, MatchEvidence } from "./eval-types.mts";
 
 const ORG_ID = "org-demo";
 const ACCOUNT_ADDRESS = "closings@keystonetitle.com";
@@ -73,6 +73,59 @@ function includesLoose(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase());
 }
 
+const IDENTIFIER_TYPES: readonly string[] = MATCHED_FACT_TYPES;
+
+/** Every identifying fact currently believed about one file. */
+function identifiersOf(transactionId: string): Identifier[] {
+  return all<{ factType: string; structuredValue: string }>(
+    `SELECT factType, structuredValue FROM ExtractedFact
+     WHERE transactionId = ? AND status = 'CURRENT' AND factType IN (${IDENTIFIER_TYPES.map(() => "?").join(",")})`,
+    [transactionId, ...IDENTIFIER_TYPES]
+  ).map((f) => ({ type: f.factType, value: factText(f.structuredValue) }));
+}
+
+/**
+ * Lift the matching decision out of the throwaway database before it is
+ * deleted. Reads the `transaction_matched` audit event this case just wrote —
+ * `rowid > watermark` picks out this email's event rather than an earlier
+ * case's, because every case in a group shares one database.
+ *
+ * Recomputes nothing. If the audit event is missing, says so by returning null
+ * rather than guessing.
+ */
+function collectMatchEvidence(auditWatermark: number): MatchEvidence | null {
+  const row = all<{ entityId: string | null; detail: string | null }>(
+    `SELECT entityId, detail FROM AuditEvent
+     WHERE eventType = 'transaction_matched' AND rowid > ?
+     ORDER BY rowid DESC LIMIT 1`,
+    [auditWatermark]
+  )[0];
+  if (!row?.detail) return null;
+
+  let detail: Partial<MatchEvidence>;
+  try {
+    detail = JSON.parse(row.detail) as Partial<MatchEvidence>;
+  } catch {
+    return null;
+  }
+
+  const filedOnTransactionId = row.entityId ?? null;
+  const otherFiles = all<{ id: string }>(`SELECT id FROM TransactionRecord WHERE id != ?`, [
+    filedOnTransactionId ?? "",
+  ]).map((t) => ({ transactionId: t.id, identifiers: identifiersOf(t.id) }));
+
+  return {
+    score: detail.score ?? 0,
+    isStrongMatch: detail.isStrongMatch ?? false,
+    reasons: detail.reasons ?? [],
+    bestCandidateTransactionId: detail.bestCandidateTransactionId ?? null,
+    transactionsConsidered: detail.transactionsConsidered ?? 0,
+    identifiersExtracted: detail.identifiersExtracted ?? [],
+    filedOnTransactionId,
+    otherFiles,
+  };
+}
+
 /** Whole-word match — so looking for "AM" doesn't fire on "Thursday at 10am"... it should, but not on "MAIN". */
 function includesWord(haystack: string, word: string): boolean {
   return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(haystack);
@@ -98,6 +151,10 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
   );
 
   const transactionsBefore = all<{ id: string }>(`SELECT id FROM TransactionRecord`).map((t) => t.id);
+  // Where the audit trail stands before this email is processed, so the
+  // matching decision written below can be told apart from earlier cases' in
+  // the same group.
+  const auditWatermark = all<{ n: number }>(`SELECT COALESCE(MAX(rowid), 0) as n FROM AuditEvent`)[0]?.n ?? 0;
 
   try {
     await processEmailMessage(messageId);
@@ -109,10 +166,12 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
       passed: false,
       errored: String(err instanceof Error ? err.message : err),
       findings: [],
-      observed: { facts: [], tasks: [], filing: "unknown", duplicateFlagged: false },
+      observed: { facts: [], tasks: [], filing: "unknown", duplicateFlagged: false, match: null },
       elapsedMs: Date.now() - startedAt,
     };
   }
+
+  const matchEvidence = collectMatchEvidence(auditWatermark);
 
   // --- Read back exactly what the app recorded ------------------------------
   const factRows = all<{ factType: string; structuredValue: string; confidence: number; transactionId: string }>(
@@ -277,7 +336,7 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     note: c.note,
     passed: findings.every((f) => f.ok),
     findings,
-    observed: { facts: observedFacts, tasks: observedTasks, filing, duplicateFlagged },
+    observed: { facts: observedFacts, tasks: observedTasks, filing, duplicateFlagged, match: matchEvidence },
     elapsedMs: Date.now() - startedAt,
   };
 }

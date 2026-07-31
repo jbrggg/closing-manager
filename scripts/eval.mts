@@ -6,6 +6,13 @@
  *   npm run eval -- --only a2    only run cases whose id contains "a2"
  *   npm run eval -- --group larkin   run one whole deal, in order
  *   npm run eval -- --jobs 8     run 8 emails at a time (default 4)
+ *   npm run diagnose             explain the filing decision for every case
+ *   npm run eval -- --keep-db    keep the throwaway databases and say where
+ *
+ * A wrong-file result now prints the matching evidence underneath it — the
+ * score, what matched, and what the file it should have joined knows that this
+ * email didn't say. That evidence was always written to the audit trail; it was
+ * being deleted along with the throwaway database at the end of the run.
  *
  * This replaces the old way of checking accuracy, which was: start the app,
  * open a browser, sign in, paste an email into the Email Test Lab, click
@@ -25,6 +32,8 @@ import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { EvalCase, EvalCaseResult } from "./eval-types.mts";
+import { explainFiling } from "./explain-filing.mts";
+import { readStrongMatchThreshold } from "./match-threshold.mts";
 
 interface Usage {
   apiCalls: number;
@@ -55,6 +64,15 @@ const useSimulated = flag("simulated");
 const only = option("only", "");
 const onlyGroup = option("group", "");
 const jobs = Math.max(1, Number(option("jobs", "4")) || 4);
+/** Explain the filing decision for every case, not just the ones that got it
+ *  wrong. `npm run diagnose` sets this. */
+const explainAll = flag("explain-filing");
+/** Keep the throwaway databases instead of deleting them, and say where they
+ *  are. For when the printed explanation isn't enough and you want to open the
+ *  audit trail yourself. */
+const keepDb = flag("keep-db");
+/** Also write the raw results as JSON, for `npm run tune` to compare runs. */
+const jsonOut = option("json", "");
 
 // --- load cases --------------------------------------------------------------
 if (!fs.existsSync(CASES_DIR)) {
@@ -235,6 +253,9 @@ const modelVersion = batches[0]?.modelVersion ?? "unknown";
 const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(1);
 
 // --- report ------------------------------------------------------------------
+// Read rather than hardcoded, so a future retune of match.ts can't leave the
+// diagnostic quoting a threshold that is no longer real.
+const strongMatchThreshold = readStrongMatchThreshold(ROOT);
 const passed = results.filter((r) => r.passed).length;
 const lines: string[] = [];
 const say = (s = "") => {
@@ -263,6 +284,13 @@ for (const r of results) {
   if (r.passed) {
     const factSummary = r.observed.facts.map((f) => `${f.type}="${f.text}"`).join(", ");
     if (factSummary) say(`      ${factSummary}`);
+  }
+  // A "WRONG FILE" line on its own says something is broken without saying
+  // what. Print the matching evidence underneath it — always for a filing or
+  // duplicate failure, and for every case when --explain-filing is set.
+  const filingWentWrong = r.findings.some((f) => !f.ok && (f.kind === "filing" || f.kind === "duplicate"));
+  if (!r.errored && (explainAll || filingWentWrong)) {
+    for (const line of explainFiling(r, strongMatchThreshold)) say(`      ${line}`);
   }
   say();
 }
@@ -317,5 +345,19 @@ fs.writeFileSync(
 );
 say(`\nSaved a copy of this report to evals/last-run.md`);
 
-fs.rmSync(tmpDir, { recursive: true, force: true });
+if (jsonOut) {
+  fs.writeFileSync(jsonOut, JSON.stringify({ modelVersion, usage, results }, null, 2));
+}
+
+if (keepDb) {
+  console.log(`\nKept the throwaway databases (--keep-db):\n  ${tmpDir}`);
+} else {
+  // force:true so a Windows file lock on a database the worker has exited but
+  // not fully released can't fail the whole run. Same trap as resetDb().
+  try {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  } catch (err) {
+    console.log(`\nNote: could not clean up ${tmpDir} (${err instanceof Error ? err.message : String(err)}).`);
+  }
+}
 process.exit(passed === results.length ? 0 : 1);

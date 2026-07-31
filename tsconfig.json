@@ -9,6 +9,10 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // The eval scripts are .mts and import each other by full filename, which
+    // is what tsx and vitest actually resolve at runtime. Legal here because
+    // noEmit is on — tsc only ever type-checks this project.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",

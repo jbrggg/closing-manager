@@ -56,6 +56,39 @@ export interface Finding {
   why?: string;
 }
 
+/** An identifying fact — the kind of thing `match.ts` actually scores on. */
+export interface Identifier {
+  type: string;
+  value: string;
+}
+
+/**
+ * Why an email landed on the file it did.
+ *
+ * The pipeline has always recorded this decision in the audit trail, but the
+ * scorecard ran each case against a throwaway database and deleted it at the
+ * end, so a "WRONG FILE" line came with no explanation. This carries the
+ * evidence out of that database before it is destroyed.
+ *
+ * Nothing here is recomputed — it is read back from the `transaction_matched`
+ * audit event written by `src/lib/ai/process-email.ts`. The scoring itself
+ * lives in `src/lib/ai/match.ts` and is not touched (invariant 4).
+ */
+export interface MatchEvidence {
+  score: number;
+  isStrongMatch: boolean;
+  reasons: string[];
+  bestCandidateTransactionId: string | null;
+  /** How many files existed to compare against when this email arrived. */
+  transactionsConsidered: number;
+  /** What this email offered up to match on. Empty means it extracted nothing. */
+  identifiersExtracted: Identifier[];
+  /** Where it actually ended up. */
+  filedOnTransactionId: string | null;
+  /** What was already on every *other* file — i.e. what it could have joined. */
+  otherFiles: { transactionId: string; identifiers: Identifier[] }[];
+}
+
 export interface EvalCaseResult {
   id: string;
   group: string;
@@ -68,6 +101,8 @@ export interface EvalCaseResult {
     tasks: { title: string; category: string; confidence: number }[];
     filing: "new" | "existing" | "unknown";
     duplicateFlagged: boolean;
+    /** Null only when the pipeline threw before it got as far as matching. */
+    match: MatchEvidence | null;
   };
   elapsedMs: number;
 }
