@@ -94,6 +94,10 @@ yourself.
 
 ## Step 4 — Roadmap task A3: your real emails
 
+**Your 17 cases are already in `evals/cases/private/`.** Running `npm run eval`
+scores all of them plus the four shipped examples. Everything below is context
+for adding more later — you don't need to do anything to get your first score.
+
 This is the current task and only you can do it. It used to mean pasting
 20–30 emails into a web page one at a time. Now:
 
@@ -176,7 +180,7 @@ key, and it is worth thirty seconds to be sure.
 
 | Thing | Status |
 |---|---|
-| 98 automated tests | Passed, including with the network completely cut off |
+| 132 automated tests | Passed, including with the network completely cut off and your key present |
 | Type check, linter | Clean |
 | Accuracy scorecard | Works — proven against the built-in word-matcher |
 | The app's actual screens | **Not checked.** My sandbox cannot run a web server. Step 2 above. |
@@ -190,10 +194,29 @@ run, and Steps 2 and 3 close all of them in about five minutes.
 
 ---
 
+## What was built after your 17 cases went in
+
+Two roadmap items that needed no decisions from you, both prompted by things
+your own emails exposed:
+
+**Transaction merge (D1).** Two of your emails, three days apart about the same
+property, correctly refuse to link — the broker quoted a loan number, our
+orders desk quoted a search number, and a matching address alone isn't strong
+enough evidence. That's deliberate, and it meant one file arrived as two, with
+a duplicate flag nothing could act on. There's now a merge button in the review
+queue that shows you exactly what will move before it moves, warns you if the
+two files name different properties, and can be undone. Nothing is ever
+deleted — details that disagree are kept as history.
+
+**Office settings now stick (D2).** The due-date defaults on the Settings page
+used to reset every time the app restarted, so any change was silently lost.
+They're stored properly now, with validation so a typo can't produce a
+nonsensical deadline.
+
+Tests went from 98 to 132.
+
 ## Housekeeping
 
-- The folder `_to_delete/` holds a leftover file-transfer bundle from the
-  previous session. Safe to delete whenever.
 - Your API key has now travelled through file uploads across two accounts.
   You chose not to rotate it for now, which is a reasonable call since it was
   never printed in a chat and is excluded from GitHub. If you change your
