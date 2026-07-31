@@ -128,7 +128,11 @@ const FACT_INSTRUCTIONS =
   "Only extract facts that are actually stated or strongly implied — never invent values. " +
   "For CLOSING_DATE, prefer the day-of-week or explicit date as written; do not resolve relative " +
   "dates yourself. For CLOSING_TIME, record the time exactly as written — never add an AM/PM " +
-  "marker or minutes that the text does not state. Assign confidence 0-1 reflecting how certain " +
+  "marker or minutes that the text does not state. For CLOSING_LOCATION, record only where the " +
+  "settlement itself takes place. A mailing, shipping, overnight or document-return address, a " +
+  "lender's or servicer's own office address, and the sender's signature-block address are NOT " +
+  "closing locations — if the email does not say where the closing happens, extract no " +
+  "CLOSING_LOCATION at all. Assign confidence 0-1 reflecting how certain " +
   "the text makes the fact, not how important it is.";
 
 const REQUEST_INSTRUCTIONS =
@@ -141,7 +145,14 @@ const REQUEST_INSTRUCTIONS =
   "single purpose — lender closing requirements, funding conditions, a checklist of items needed " +
   "before approval — report ONE request covering that list as a whole, not one per bullet point. " +
   "Eight bullets from one lender about one closing is one task, and its title should name the list " +
-  "(for example \"Answer lender closing requirements\"), not the first bullet.";
+  "(for example \"Answer lender closing requirements\"), not the first bullet. " +
+  "Apply that rule strictly. Before reporting more than one request, check whether the asks come " +
+  "from the SAME party and concern the SAME closing — if they do, report ONE request. A headline " +
+  "instruction plus the conditions attached to it is one request, not two: reviewing and approving " +
+  "a settlement statement, meeting the funding conditions that accompany it, returning the executed " +
+  "package afterwards, and shipping the originals are all one instruction about one closing. " +
+  "Steps that happen at different times in the same process are still one request. " +
+  "Split only when two asks would be worked by different people, or concern different files.";
 
 const COMPLETION_INSTRUCTIONS =
   "You determine whether an outgoing email from a title agency indicates that a previously requested " +
