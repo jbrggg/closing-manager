@@ -225,6 +225,42 @@ Write through to the Office/Organization tables with a Settings UI.
 ### D3. 🤖 Gmail adapter
 Only if the agency actually needs it. Outlook first.
 
+### D6. ✋ Disbursements — wire notifications need their own section
+**Owner's decision 2026-07-31:** wire notifications should not land in the
+ordinary task list. They belong in a separate **Disbursements** section, and
+each one should be matched to a file — or flagged as unmatched for a human.
+
+Why they don't fit the task model: a wire notification asks for nothing. It
+is a *record that money moved*, and the work it creates is reconciliation,
+not a to-do. Today the pipeline sees no request and correctly raises no
+task — which means the notification effectively disappears.
+
+What matching has to work from, in order of reliability:
+1. **A file number in the memo field** — `Originator to Beneficiary
+   Information` often carries one (`... - AKB3178-S`). Strongest signal.
+2. **A property address in the memo** — also common, and often mangled: the
+   bank's fixed-width format **wraps mid-word**, so "Edison" arrives as
+   `Edi` + padding + newline + `son`. Any matcher must normalise that before
+   comparing. See `evals/cases/private/wire-notification-disbursement.json`.
+3. **The originator or beneficiary name** matched against parties already on
+   a transaction — a realtor, a lender, a payoff bank.
+4. **Amount and date** as corroboration only, never as a primary match.
+
+Design notes:
+- Model it as its own record (`Disbursement`) linked to a transaction, not as
+  a `Task`. Direction matters: money in vs money out.
+- Unmatched wires must be **visible and chased**, not silently dropped. An
+  unmatched incoming wire is money sitting in escrow with no file attached.
+- Matching must be at least as conservative as `match.ts`. Attaching a wire
+  to the wrong file is worse than leaving it unmatched.
+
+**Security — this is the sensitive-data case the brief warned about.** These
+emails carry account fragments, Fedwire OMAD/IMAD identifiers, sequence
+numbers and amounts. `CLAUDE.md` already forbids wire instructions in task
+titles and full bank data in shared views; a Disbursements section makes that
+concrete rather than theoretical. Decide the redaction rules *before*
+building the UI, not after.
+
 ### D5. ✋ Our own outgoing requests raise no task at all
 Found 2026-07-31 while building the `cpl-correction-request` eval case.
 
