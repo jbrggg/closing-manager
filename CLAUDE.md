@@ -50,6 +50,7 @@ npm run eval         # score the AI against the real emails in evals/cases/
 npm run eval -- --simulated   # same, using the free word-matcher, costs nothing
 npm run diagnose     # same as eval, plus WHY each email was filed where it was
 npm run tune         # measure the prompt over several runs; see below
+npm run smoke        # with `npm run dev` running: sign in and walk every screen
 ```
 
 `npm run tune -- --apply <file>` swaps in a candidate `llm-provider.ts`, scores

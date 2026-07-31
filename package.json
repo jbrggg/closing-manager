@@ -13,6 +13,7 @@
     "eval": "tsx scripts/eval.mts",
     "diagnose": "tsx scripts/eval.mts --explain-filing",
     "tune": "tsx scripts/tune.mts",
+    "smoke": "tsx scripts/smoke.mts",
     "verify": "node scripts/verify.mjs",
     "verify:full": "node scripts/verify.mjs --build"
   },
