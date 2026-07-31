@@ -1,0 +1,15 @@
+{
+  "id": "no-request",
+  "note": "Pure information, nothing is being asked for. Guards against the AI inventing busywork - a task manager that cries wolf gets ignored.",
+  "from": "marie@sunrisereatly.com",
+  "subject": "FYI - buyer walkthrough went fine",
+  "direction": "INCOMING",
+  "body": "Just letting you know the walkthrough at 5 Larkspur Lane went fine this morning. Buyers are happy. Nothing needed from you. See you Thursday.",
+  "expect": {
+    "facts": [
+      { "type": "PROPERTY_ADDRESS", "contains": "5 Larkspur" }
+    ],
+    "taskCount": 0,
+    "filing": "new"
+  }
+}

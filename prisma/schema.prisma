@@ -1,0 +1,424 @@
+// =============================================================================
+// CANONICAL DATA MODEL — target production schema (PostgreSQL)
+// -----------------------------------------------------------------------------
+// NOTE ON THIS PROTOTYPE:
+// This file is the documented, versioned source of truth for the data model
+// described in the project spec. Because this sandbox cannot reach
+// binaries.prisma.sh (Prisma's engine CDN) to download the query/schema
+// engines, the RUNNING prototype does not execute through Prisma Client.
+// Instead the identical shape is hand-implemented in db/schema.sql and
+// queried via Node's built-in `node:sqlite` (src/lib/db.ts), with the same
+// field names, enums, and relationships defined here.
+//
+// To move to real Postgres later: `prisma migrate dev` against this file,
+// then swap src/lib/db.ts for @prisma/client — no shape changes needed.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------- Org / Access -------------------------------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now())
+
+  offices       Office[]
+  users         User[]
+  emailAccounts EmailAccount[]
+  transactions  Transaction[]
+}
+
+model Office {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  address        String?
+  businessHours  String? // JSON: { start: "09:00", end: "17:00" }
+  isDefault      Boolean  @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+enum UserRole {
+  ADMIN
+  CLOSER
+  PROCESSOR
+  ATTORNEY
+  STAFF
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  email          String   @unique
+  role           UserRole @default(STAFF)
+  /// scrypt hash, format: scrypt$N$r$p$saltHex$keyHex. Never store plaintext.
+  passwordHash   String?
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sessions     Session[]
+}
+
+/// Opaque server-side session. The cookie carries a random token; only its
+/// SHA-256 hash is stored, so a database leak does not yield usable sessions.
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ------------------------------- Email layer --------------------------------
+
+enum EmailProviderType {
+  MOCK
+  GMAIL
+  MICROSOFT_365
+}
+
+model EmailAccount {
+  id             String            @id @default(uuid())
+  organizationId String
+  providerType   EmailProviderType @default(MOCK)
+  emailAddress   String
+  connected      Boolean           @default(true)
+  lastSyncedAt   DateTime?
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  threads      EmailThread[]
+}
+
+model EmailThread {
+  id             String   @id @default(uuid())
+  emailAccountId String
+  subject        String
+  participants   String // JSON array of emails
+  createdAt      DateTime @default(now())
+
+  emailAccount EmailAccount   @relation(fields: [emailAccountId], references: [id])
+  messages     EmailMessage[]
+}
+
+model EmailMessage {
+  id           String   @id @default(uuid())
+  threadId     String
+  providerMsgId String
+  fromAddress  String
+  toAddresses  String // JSON array
+  subject      String
+  bodyText     String
+  direction    String // INCOMING | OUTGOING
+  sentAt       DateTime
+  quotedText   String?
+
+  thread      EmailThread      @relation(fields: [threadId], references: [id])
+  attachments EmailAttachment[]
+  facts       ExtractedFact[]
+}
+
+model EmailAttachment {
+  id        String @id @default(uuid())
+  messageId String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+
+  message EmailMessage @relation(fields: [messageId], references: [id])
+}
+
+// ---------------------------- Parties / Property -----------------------------
+
+model Person {
+  id    String  @id @default(uuid())
+  name  String
+  email String?
+  phone String?
+  role  String // buyer, seller, borrower, attorney, realtor, lender_contact
+}
+
+model Company {
+  id   String @id @default(uuid())
+  name String
+  type String // lender, attorney_firm, closing_company, realty
+}
+
+model Property {
+  id                String  @id @default(uuid())
+  rawAddress        String
+  normalizedAddress String
+}
+
+// -------------------------------- Transaction --------------------------------
+
+enum TransactionStatus {
+  POTENTIAL
+  SCHEDULING
+  TENTATIVE
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+  COMPLETED
+  ARCHIVED
+  NEEDS_REVIEW
+}
+
+model Transaction {
+  id             String            @id @default(uuid())
+  organizationId String
+  officeId       String?
+  propertyId     String?
+  fileNumber     String?
+  loanNumber     String?
+  transactionType String? // purchase, refinance, sale
+  status         TransactionStatus @default(POTENTIAL)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  participants TransactionParticipant[]
+  facts        ExtractedFact[]
+  closings     ClosingEvent[]
+  tasks        Task[]
+  reviewItems  ReviewItem[]
+  proposals    AIProposal[]
+}
+
+model TransactionParticipant {
+  id            String  @id @default(uuid())
+  transactionId String
+  personId      String?
+  companyId     String?
+  participantRole String // buyer, seller, lender, attorney, realtor, closing_company
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+}
+
+// ------------------------------- Extracted facts -----------------------------
+
+enum FactType {
+  PROPERTY_ADDRESS
+  BUYER_NAME
+  SELLER_NAME
+  LENDER_NAME
+  ATTORNEY_NAME
+  REALTOR_NAME
+  CLOSING_DATE
+  CLOSING_TIME
+  CLOSING_LOCATION
+  FILE_NUMBER
+  LOAN_NUMBER
+  DEADLINE
+  REQUEST
+  MILESTONE
+  OTHER
+}
+
+model ExtractedFact {
+  id             String   @id @default(uuid())
+  transactionId  String?
+  factType       FactType
+  structuredValue String // JSON
+  sourceEmailId  String
+  sourceThreadId String
+  sourceTimestamp DateTime
+  sourceSender   String
+  evidenceSummary String
+  confidence     Float
+  status         String   @default("CURRENT") // CURRENT | SUPERSEDED
+  supersedesId   String?
+  extractedAt    DateTime @default(now())
+  modelVersion   String
+
+  transaction Transaction? @relation(fields: [transactionId], references: [id])
+  sourceEmail EmailMessage @relation(fields: [sourceEmailId], references: [id])
+}
+
+// -------------------------------- Closing events ------------------------------
+
+enum ClosingStatus {
+  PROPOSED
+  TENTATIVE
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+model ClosingEvent {
+  id            String        @id @default(uuid())
+  transactionId String
+  status        ClosingStatus @default(PROPOSED)
+  date          String?       // ISO date
+  time          String?       // HH:mm
+  timezone      String        @default("America/New_York")
+  location      String?
+  locationTBD   Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+
+  transaction Transaction           @relation(fields: [transactionId], references: [id])
+  revisions   ClosingEventRevision[]
+}
+
+model ClosingEventRevision {
+  id             String   @id @default(uuid())
+  closingEventId String
+  changedFields  String // JSON
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  closingEvent ClosingEvent @relation(fields: [closingEventId], references: [id])
+}
+
+// ----------------------------------- Tasks -------------------------------------
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_INTERNALLY
+  WAITING_EXTERNALLY
+  NEEDS_REVIEW
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  transactionId  String?
+  title          String
+  category       String
+  priority       String     @default("normal")
+  status         TaskStatus @default(OPEN)
+  assignedUserId String?
+  requester      String?
+  dueAt          DateTime?
+  dueIsInferred  Boolean    @default(false)
+  waitingCondition String?
+  sourceEmailId  String?
+  confidence     Float
+  createdAt      DateTime   @default(now())
+
+  transaction Transaction?          @relation(fields: [transactionId], references: [id])
+  dependencies TaskDependency[]
+  completionEvidence TaskCompletionEvidence[]
+}
+
+model TaskDependency {
+  id     String @id @default(uuid())
+  taskId String
+  triggerDescription String
+  task   Task   @relation(fields: [taskId], references: [id])
+}
+
+model TaskCompletionEvidence {
+  id             String   @id @default(uuid())
+  taskId         String
+  evidenceEmailId String?
+  summary        String
+  createdAt      DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+}
+
+// ------------------------------- Review & proposals -----------------------------
+
+enum ProposalStatus {
+  PROPOSED
+  AUTO_APPROVED
+  HUMAN_APPROVED
+  HUMAN_REJECTED
+  REVERSED
+  FAILED
+}
+
+model AIProposal {
+  id             String         @id @default(uuid())
+  transactionId  String?
+  proposalType   String // closing_create, closing_reschedule, task_create, task_complete, merge, cancellation
+  payload        String // JSON
+  confidence     Float
+  fieldConfidence String // JSON
+  status         ProposalStatus @default(PROPOSED)
+  idempotencyKey String         @unique
+  sourceEmailIds String // JSON array
+  createdAt      DateTime       @default(now())
+
+  transaction Transaction? @relation(fields: [transactionId], references: [id])
+  reviewItem  ReviewItem?
+}
+
+model ReviewItem {
+  id             String   @id @default(uuid())
+  transactionId  String?
+  proposalId     String   @unique
+  reviewType     String
+  reason         String
+  conflictingEvidence String?
+  duplicateCandidates String?
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt      DateTime @default(now())
+  decidedAt      DateTime?
+  decidedByUserId String?
+
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  proposal    AIProposal  @relation(fields: [proposalId], references: [id])
+}
+
+model AIProcessingJob {
+  id          String   @id @default(uuid())
+  emailMessageId String
+  status      String   @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  errorText   String?
+}
+
+// --------------------------------- Audit / notify --------------------------------
+
+model AuditEvent {
+  id          String   @id @default(uuid())
+  organizationId String
+  eventType   String // email_processed, search_performed, transaction_matched, facts_extracted,
+                      // proposal_generated, human_decision, action_executed, action_reversed, integration_failure
+  entityType  String?
+  entityId    String?
+  summary     String
+  detail      String? // JSON
+  actorType   String // AI | HUMAN | SYSTEM
+  actorId     String?
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AutomationRule {
+  id             String  @id @default(uuid())
+  actionType     String
+  enabled        Boolean @default(false)
+  minConfidence  Float   @default(0.95)
+}

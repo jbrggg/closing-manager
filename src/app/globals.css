@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f2f3f0;
+  --surface: #ffffff;
+  --ink: #1b2430;
+  --ink-muted: #5b6570;
+  --border: #dde1e0;
+  --line: #e7e9e4;
+
+  --accent-confirmed: #0f5132;
+  --accent-confirmed-bg: #e6f0e9;
+  --accent-tentative: #9a5b00;
+  --accent-tentative-bg: #fbeed7;
+  --accent-review: #a3410f;
+  --accent-review-bg: #fbe6dc;
+  --accent-danger: #a3241f;
+  --accent-danger-bg: #f8e2e0;
+  --accent-info: #1e4d6b;
+  --accent-info-bg: #e2eef4;
+  --accent-neutral: #4b5259;
+  --accent-neutral-bg: #e9eae6;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-border: var(--border);
+  --color-line: var(--line);
+
+  --color-confirmed: var(--accent-confirmed);
+  --color-confirmed-bg: var(--accent-confirmed-bg);
+  --color-tentative: var(--accent-tentative);
+  --color-tentative-bg: var(--accent-tentative-bg);
+  --color-review: var(--accent-review);
+  --color-review-bg: var(--accent-review-bg);
+  --color-danger: var(--accent-danger);
+  --color-danger-bg: var(--accent-danger-bg);
+  --color-info: var(--accent-info);
+  --color-info-bg: var(--accent-info-bg);
+  --color-neutral: var(--accent-neutral);
+  --color-neutral-bg: var(--accent-neutral-bg);
+
+  --font-sans: "Segoe UI", -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", ui-serif, serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, ui-monospace, monospace;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-serif-head {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-mono-data {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+::selection {
+  background: var(--accent-info-bg);
+}
+
+table {
+  border-collapse: collapse;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}

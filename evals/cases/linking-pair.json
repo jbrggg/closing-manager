@@ -1,0 +1,37 @@
+[
+  {
+    "id": "linking-pair-1-first-email",
+    "group": "linking-pair",
+    "note": "First email establishes the file. Cases sharing a 'group' run in order against the same database, so later ones can be checked for correct filing.",
+    "from": "processor@shoreside.com",
+    "subject": "New order - 412 Maple Ave",
+    "direction": "INCOMING",
+    "body": "Opening a new file for 412 Maple Ave. Buyer is Denise Okafor. Our file number is SS-77120. Lender is Coastal Federal.",
+    "expect": {
+      "facts": [
+        { "type": "PROPERTY_ADDRESS", "contains": "412 Maple" },
+        { "type": "FILE_NUMBER", "contains": "SS-77120" }
+      ],
+      "filing": "new"
+    }
+  },
+  {
+    "id": "linking-pair-2-should-link",
+    "group": "linking-pair",
+    "note": "Same file number as the previous email. Must be filed under the SAME transaction, not a new one. Filing an email under the wrong property is the most damaging mistake this app can make.",
+    "from": "processor@shoreside.com",
+    "subject": "RE: New order - 412 Maple Ave",
+    "direction": "INCOMING",
+    "body": "Following up on SS-77120 - can we do Wednesday at 11 at the Cherry Hill office? Also please send the CPL when you get a chance.",
+    "expect": {
+      "facts": [
+        { "type": "CLOSING_TIME", "contains": "11" },
+        { "type": "CLOSING_LOCATION", "contains": "Cherry Hill" }
+      ],
+      "tasks": [
+        { "contains": "CPL" }
+      ],
+      "filing": "existing"
+    }
+  }
+]

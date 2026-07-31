@@ -1,0 +1,20 @@
+{
+  "id": "explicit-request",
+  "note": "A plainly-worded request with an explicit deadline. This is the easy case - if this one ever fails, something is badly wrong.",
+  "from": "counsel@harrisonlaw.com",
+  "subject": "77 Birchwood Drive - revised commitment",
+  "direction": "INCOMING",
+  "body": "Good morning. Please send the revised title commitment by Friday. Closing is set for 77 Birchwood Drive on Monday at 2:00 PM at the Cherry Hill office. File #KT-2026-0188.",
+  "expect": {
+    "facts": [
+      { "type": "PROPERTY_ADDRESS", "contains": "77 Birchwood" },
+      { "type": "CLOSING_TIME", "contains": "2:00" },
+      { "type": "CLOSING_LOCATION", "contains": "Cherry Hill" },
+      { "type": "FILE_NUMBER", "contains": "KT-2026-0188" }
+    ],
+    "tasks": [
+      { "contains": "commitment" }
+    ],
+    "filing": "new"
+  }
+}

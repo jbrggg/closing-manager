@@ -1,0 +1,26 @@
+{
+  "id": "a2-kowalski",
+  "note": "Roadmap task A2's acceptance case. These are the four things the old word-matcher missed. Keep this case forever: if a future change breaks it, the AI has regressed to word-matching behaviour.",
+  "from": "jsmith@bigbanklending.com",
+  "subject": "RE: RE: FW: Kowalski / 88 Rosewood",
+  "direction": "INCOMING",
+  "body": "Hi - circling back on this one. We still dont have the CPL and underwriting is asking. Also can you confirm the payoff was ordered? Borrower is asking about Thursday at 10, does that still work for the Cherry Hill office? Loan #LN-44821. Thanks",
+  "expect": {
+    "facts": [
+      { "type": "PROPERTY_ADDRESS", "contains": "88 Rosewood", "why": "A2 target 1 - address with no street suffix" },
+      { "type": "CLOSING_TIME", "contains": "10", "why": "A2 target 2 - time with no AM/PM" },
+      { "type": "BUYER_NAME", "contains": "Kowalski", "why": "A2 target 4 - name in the subject line with no role keyword" },
+      { "type": "LOAN_NUMBER", "contains": "LN-44821" },
+      { "type": "CLOSING_LOCATION", "contains": "Cherry Hill" }
+    ],
+    "mustNotSay": [
+      { "type": "CLOSING_TIME", "text": "AM", "why": "REGRESSION GUARD: the email never says AM. The model invented '10:00 AM' in 1 of 3 runs on 2026-07-31 and the prompt was tightened to forbid it." },
+      { "type": "CLOSING_TIME", "text": "PM", "why": "REGRESSION GUARD: same as above." }
+    ],
+    "tasks": [
+      { "contains": "CPL", "why": "A2 target 3 - implicit request from 'we still dont have', no apostrophe" },
+      { "contains": "payoff" }
+    ],
+    "filing": "new"
+  }
+}
