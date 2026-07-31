@@ -200,6 +200,36 @@ Write through to the Office/Organization tables with a Settings UI.
 ### D3. 🤖 Gmail adapter
 Only if the agency actually needs it. Outlook first.
 
+### D5. ✋ Our own outgoing requests raise no task at all
+Found 2026-07-31 while building the `cpl-correction-request` eval case.
+
+The pipeline treats direction as a hard fork: `INCOMING` → look for requests
+and raise tasks; `OUTGOING` → look for completions only. So when someone here
+emails the underwriter "please provide us with an updated CPL", the app
+records the facts and creates **nothing to chase**. The obligation exists —
+it is just invisible until the underwriter happens to reply.
+
+This is the single most common shape of work in the mailbox: we ask an
+outside party for something and then have to remember to follow up.
+
+The schema already supports it. `Task.status` has `WAITING_EXTERNALLY`, and
+the brief calls for exactly this ("Forward payoff when received", "Send
+revised commitment after underwriting changes arrive"). What is missing is
+the pipeline step that creates one.
+
+Sketch:
+- on an `OUTGOING` message, ask the model for *outbound* requests as well as
+  completion signals — "what did we just ask someone else for?"
+- raise a `TASK_CREATE` proposal with status `WAITING_EXTERNALLY`, the
+  recipient as the party being waited on, and a trigger condition
+- a later inbound reply on the same transaction is what closes it, which is
+  the completion detection that already exists
+
+**Ask before building.** It changes what OUTGOING mail does, and today
+`taskCount: 0` on outgoing mail is asserted in several eval cases and is a
+deliberate safety property — our own sent mail cannot currently spam the task
+list. Those assertions would need revisiting together with the owner.
+
 ### D4. ✋ Phase 2 automation rollout
 Human decides when to trust it. Start with `TASK_CREATE` at a high
 threshold, watch the audit log, expand slowly.
