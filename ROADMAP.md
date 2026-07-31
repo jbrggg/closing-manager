@@ -213,7 +213,42 @@ documented restore procedure.
 
 ## Phase D — Complete the product
 
-### D1. 🤖 Transaction merge and split
+### D1. 🤖 Transaction merge and split — MORE URGENT THAN IT LOOKS
+**Evidence added 2026-07-31.** Two real emails, three days apart, about the
+same property (`evals/cases/private/new-title-order-from-broker*.json`):
+
+| | Broker's order | Our search order |
+|---|---|---|
+| Property | 1274 Danforth Ave | 1274 Danforth Ave |
+| Identifier | loan `2607093481` | search no. `SAS26-812R` |
+| Overlap | **the address, and nothing else** | |
+
+A matching address scores 45. The strong-match threshold is 60. So these two
+correctly **do not link** — invariant 4 exists because the same property
+legitimately has multiple transactions over time, and that rule was tuned
+against a real false-merge bug.
+
+The result is that one file arrives as two transactions, with the second
+flagged as a possible duplicate. That flag is the only thing standing between
+the office and a split file — and **there is currently no way to act on it**,
+because merge is unbuilt. The review queue shows the duplicate candidate and
+offers no button.
+
+This is not a matching bug to fix by lowering the threshold. It is the merge
+feature doing its job by being absent. Two consequences:
+- D1 should move up the queue; it is load-bearing for everyday work, not a
+  nice-to-have.
+- The office's own file number is the identifier that would link these
+  properly. Worth asking whether it can be added to outbound order emails.
+
+**Also missing from the scorecard:** there is no way to assert "was this
+flagged as a possible duplicate?". Where no proposal is created — as in the
+search-order email, which raises no task and no closing — the duplicate
+candidate is recorded only in the audit log, so nothing in `evals/` can check
+it. Add `duplicateFlagged` support to `scripts/eval-worker.mts` when building
+this.
+
+
 `POST /api/v1/transactions/:id/merge` is specified but unbuilt. The review
 queue already surfaces duplicate candidates with no way to act on them.
 Must preserve full fact history from both sides.
