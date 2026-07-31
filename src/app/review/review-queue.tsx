@@ -7,6 +7,16 @@ import { StatusChip, ConfidencePill } from "@/components/ui/status-chip";
 import { EmptyState } from "@/components/ui/layout-primitives";
 import { displayFactValue, formatDateTime, titleCaseEnum } from "@/lib/format";
 
+/** Plain-English names for the tables a merge moves, for the preview panel. */
+const LABELS: Record<string, string> = {
+  ExtractedFact: "extracted fact",
+  Task: "task",
+  ClosingEvent: "closing",
+  AIProposal: "AI proposal",
+  ReviewItem: "review item",
+  TransactionParticipant: "party",
+};
+
 export function ReviewQueue({ initialItems }: { initialItems: any[] }) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
@@ -14,7 +24,70 @@ export function ReviewQueue({ initialItems }: { initialItems: any[] }) {
   const [pending, startTransition] = useTransition();
   const [rejectReason, setRejectReason] = useState("");
 
+  // Merge is deliberately two steps: ask what would happen, show it, then do
+  // it. Filing an email under the wrong property is the worst mistake this app
+  // can make, and merging two unrelated files is that mistake at scale.
+  const [mergePreview, setMergePreview] = useState<any>(null);
+  const [mergeTarget, setMergeTarget] = useState<string | null>(null);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [mergeDone, setMergeDone] = useState<string | null>(null);
+
   const selected = useMemo(() => items.find((i) => i.id === selectedId) ?? null, [items, selectedId]);
+
+  function askAboutMerge(duplicateId: string) {
+    if (!selected) return;
+    setMergeError(null);
+    setMergeDone(null);
+    setMergeTarget(duplicateId);
+    startTransition(async () => {
+      const res = await fetch(`/api/v1/transactions/${selected.transactionId}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secondaryTransactionId: duplicateId, dryRun: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMergeError(json.error ?? "Could not work out what merging would do.");
+        setMergePreview(null);
+        return;
+      }
+      setMergePreview(json.preview);
+    });
+  }
+
+  function confirmMerge() {
+    if (!selected || !mergeTarget) return;
+    startTransition(async () => {
+      const res = await fetch(`/api/v1/transactions/${selected.transactionId}/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secondaryTransactionId: mergeTarget,
+          explanation: "Merged from the review queue after comparing both files.",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setMergeError(json.error ?? "The merge did not go through.");
+        return;
+      }
+      setMergePreview(null);
+      setMergeTarget(null);
+      setMergeDone(
+        `Merged. ${json.movedRows} record(s) moved onto this file` +
+          (json.supersededFactIds?.length
+            ? `, and ${json.supersededFactIds.length} duplicate or conflicting fact(s) were kept as history rather than deleted.`
+            : ".")
+      );
+      router.refresh();
+    });
+  }
+
+  function cancelMerge() {
+    setMergePreview(null);
+    setMergeTarget(null);
+    setMergeError(null);
+  }
 
   function decide(action: "approve" | "reject") {
     if (!selected) return;
@@ -110,13 +183,95 @@ export function ReviewQueue({ initialItems }: { initialItems: any[] }) {
                 <div className="rounded-sm border border-review bg-review-bg p-4">
                   <h3 className="text-[12px] font-semibold uppercase tracking-wide text-review">Possible duplicate transaction</h3>
                   <p className="mt-1 text-[12px] text-ink">
-                    A similar signal matched an existing transaction, but the evidence was too weak to auto-merge.
+                    A similar signal matched an existing file, but the evidence was too weak to link them
+                    automatically. Compare both before deciding — the same property can genuinely have more
+                    than one deal over time.
                   </p>
+
                   {selected.duplicateTxns.map((d: any) => (
-                    <Link key={d.id} href={`/transactions/${d.id}`} className="mt-1 block text-[12px] text-info underline">
-                      Compare with transaction {d.id.slice(0, 8)} ({titleCaseEnum(d.status)}) →
-                    </Link>
+                    <div key={d.id} className="mt-2 flex flex-wrap items-center gap-3">
+                      <Link href={`/transactions/${d.id}`} className="text-[12px] text-info underline">
+                        Compare with file {d.id.slice(0, 8)} ({titleCaseEnum(d.status)}) →
+                      </Link>
+                      {d.status !== "MERGED" && (
+                        <button
+                          type="button"
+                          onClick={() => askAboutMerge(d.id)}
+                          disabled={pending}
+                          className="rounded-sm border border-review px-2 py-1 text-[11px] font-medium text-review hover:bg-review hover:text-white disabled:opacity-50"
+                        >
+                          These are the same file — merge
+                        </button>
+                      )}
+                    </div>
                   ))}
+
+                  {mergeError && <p className="mt-3 text-[12px] text-danger">{mergeError}</p>}
+                  {mergeDone && <p className="mt-3 text-[12px] text-ink">{mergeDone}</p>}
+
+                  {mergePreview && (
+                    <div className="mt-3 rounded-sm border border-line bg-paper p-3">
+                      <h4 className="text-[12px] font-semibold text-ink">Before you merge — here is exactly what happens</h4>
+
+                      <ul className="mt-2 list-disc space-y-1 pl-4 text-[12px] text-ink">
+                        {Object.entries(mergePreview.moves as Record<string, number>)
+                          .filter(([, n]) => n > 0)
+                          .map(([table, n]) => (
+                            <li key={table}>
+                              {n} {LABELS[table] ?? table}
+                              {n === 1 ? "" : "s"} move onto this file
+                            </li>
+                          ))}
+                        {Object.values(mergePreview.moves as Record<string, number>).every((n) => n === 0) && (
+                          <li>Nothing to move — the other file has no records on it yet.</li>
+                        )}
+                        <li>The other file is kept and marked merged. Nothing is deleted.</li>
+                        <li>You can undo this afterwards.</li>
+                      </ul>
+
+                      {mergePreview.conflicts?.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-[12px] font-semibold text-ink">
+                            These details disagree. This file&apos;s version wins; the other is kept as history:
+                          </p>
+                          <ul className="mt-1 list-disc space-y-1 pl-4 text-[12px] text-ink-muted">
+                            {mergePreview.conflicts.map((c: any) => (
+                              <li key={c.factType}>
+                                <span className="text-ink">{titleCaseEnum(c.factType)}</span>: keeping{" "}
+                                <span className="text-ink">{displayFactValue(c.factType, c.keptValue)}</span>, superseding{" "}
+                                {displayFactValue(c.factType, c.supersededValue)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {mergePreview.warnings?.map((w: string) => (
+                        <p key={w} className="mt-3 rounded-sm border border-danger bg-review-bg p-2 text-[12px] text-danger">
+                          {w}
+                        </p>
+                      ))}
+
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={confirmMerge}
+                          disabled={pending}
+                          className="rounded-sm bg-review px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+                        >
+                          {pending ? "Merging…" : "Yes, merge them"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelMerge}
+                          disabled={pending}
+                          className="rounded-sm border border-border px-3 py-1.5 text-[12px] text-ink disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

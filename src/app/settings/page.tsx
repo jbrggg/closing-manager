@@ -1,6 +1,6 @@
 import { all } from "@/lib/db";
 import { ensureSeeded } from "@/lib/ensure-seeded";
-import { officeDefaults } from "@/lib/services/office-rules";
+import { getOfficeDefaults } from "@/lib/services/office-rules";
 import { PageHeader, Panel } from "@/components/ui/layout-primitives";
 import { StatusChip } from "@/components/ui/status-chip";
 import { AutomationRules } from "./automation-rules";
@@ -9,6 +9,7 @@ import { requirePageSession } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
+  const officeDefaults = getOfficeDefaults();
   await requirePageSession();
   await ensureSeeded();
   const offices = all<any>(`SELECT * FROM Office`);

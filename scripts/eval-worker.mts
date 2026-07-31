@@ -109,7 +109,7 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
       passed: false,
       errored: String(err instanceof Error ? err.message : err),
       findings: [],
-      observed: { facts: [], tasks: [], filing: "unknown" },
+      observed: { facts: [], tasks: [], filing: "unknown", duplicateFlagged: false },
       elapsedMs: Date.now() - startedAt,
     };
   }
@@ -138,6 +138,26 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
   const proposedClosing = proposalRows.some((p) => p.proposalType.startsWith("CLOSING_"));
 
   const transactionId = factRows[0]?.transactionId ?? null;
+
+  // Was this flagged as a possible duplicate? Two places record it: a review
+  // item's duplicateCandidates list (when a proposal was created) and the
+  // audit trail (when none was, e.g. our own outgoing mail that raises no
+  // task). Check both — otherwise the flag is invisible on exactly the emails
+  // where it matters most.
+  const flaggedOnReview = transactionId
+    ? all<{ n: number }>(
+        `SELECT COUNT(*) as n FROM ReviewItem WHERE transactionId = ? AND duplicateCandidates IS NOT NULL`,
+        [transactionId]
+      )[0]?.n ?? 0
+    : 0;
+  const flaggedInAudit = transactionId
+    ? all<{ n: number }>(
+        `SELECT COUNT(*) as n FROM AuditEvent
+         WHERE entityId = ? AND eventType = 'transaction_matched' AND summary LIKE '%possible duplicate%'`,
+        [transactionId]
+      )[0]?.n ?? 0
+    : 0;
+  const duplicateFlagged = flaggedOnReview > 0 || flaggedInAudit > 0;
   const filing: EvalCaseResult["observed"]["filing"] = !transactionId
     ? "unknown"
     : transactionsBefore.includes(transactionId)
@@ -216,6 +236,29 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     );
   }
 
+  if (e.duplicateFlagged !== undefined) {
+    findings.push(
+      duplicateFlagged === e.duplicateFlagged
+        ? {
+            ok: true,
+            kind: "duplicate",
+            detail: e.duplicateFlagged
+              ? "flagged as a possible duplicate of an existing file, as expected"
+              : "did not flag a duplicate, as expected",
+          }
+        : {
+            ok: false,
+            kind: "duplicate",
+            detail: e.duplicateFlagged
+              ? "expected this to be flagged as a possible duplicate of an existing file, but it was not"
+              : "flagged a possible duplicate when there should be none",
+            why: e.duplicateFlagged
+              ? "When two files look related but the evidence is too weak to link them, the app must raise the flag. An unflagged split file is one nobody knows to merge."
+              : undefined,
+          }
+    );
+  }
+
   if (e.proposesClosing !== undefined) {
     findings.push(
       proposedClosing === e.proposesClosing
@@ -234,7 +277,7 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     note: c.note,
     passed: findings.every((f) => f.ok),
     findings,
-    observed: { facts: observedFacts, tasks: observedTasks, filing },
+    observed: { facts: observedFacts, tasks: observedTasks, filing, duplicateFlagged },
     elapsedMs: Date.now() - startedAt,
   };
 }

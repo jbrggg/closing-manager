@@ -213,7 +213,7 @@ documented restore procedure.
 
 ## Phase D — Complete the product
 
-### D1. 🤖 Transaction merge and split — MORE URGENT THAN IT LOOKS
+### D1. ✅ DONE 2026-07-31 — Transaction merge
 **Evidence added 2026-07-31.** Two real emails, three days apart, about the
 same property (`evals/cases/private/new-title-order-from-broker*.json`):
 
@@ -241,21 +241,49 @@ feature doing its job by being absent. Two consequences:
 - The office's own file number is the identifier that would link these
   properly. Worth asking whether it can be added to outbound order emails.
 
-**Also missing from the scorecard:** there is no way to assert "was this
-flagged as a possible duplicate?". Where no proposal is created — as in the
-search-order email, which raises no task and no closing — the duplicate
-candidate is recorded only in the audit log, so nothing in `evals/` can check
-it. Add `duplicateFlagged` support to `scripts/eval-worker.mts` when building
-this.
+**Built:** `src/lib/services/merge.ts`, `POST /api/v1/transactions/:id/merge`
+(with `dryRun` for the preview), `POST .../merge/reverse`, and a two-step
+merge button in the review queue that shows exactly what will move before
+anything happens. 21 tests in `tests/merge.test.ts`.
+
+Two properties the tests pin down:
+- **Nothing is deleted.** Colliding facts are marked `SUPERSEDED` and moved
+  across with their evidence, so the history of what was believed and when
+  survives the merge (invariant 2). The losing transaction is marked `MERGED`,
+  not removed, so existing evidence links still resolve.
+- **It is reversible.** Every moved row id is written to a `TransactionMerge`
+  record, so a mistaken merge undoes exactly. Rows created *after* the merge
+  stay put — moving them would be inventing history.
+
+`duplicateFlagged` was also added to the scorecard, checking both the review
+item and the audit trail, so the flag is visible even on emails that raise no
+proposal at all.
+
+**Still not built: transaction SPLIT.** Merge was the load-bearing half — a
+split file is an everyday occurrence, whereas an over-merged file needs
+`reverseMerge` (which exists) rather than a general split. Build split when a
+real case demands it.
 
 
 `POST /api/v1/transactions/:id/merge` is specified but unbuilt. The review
 queue already surfaces duplicate candidates with no way to act on them.
 Must preserve full fact history from both sides.
 
-### D2. 🤖 Persist office settings
-`src/lib/services/office-rules.ts` is in-memory and resets on restart.
-Write through to the Office/Organization tables with a Settings UI.
+### D2. ✅ DONE 2026-07-31 — Office settings persist
+`src/lib/services/office-rules.ts` now reads and writes an `OfficeSetting`
+key/value table instead of a module-level object that reset on every restart —
+an admin's change used to be silently lost.
+
+Key/value rather than columns on Organization, because these are policy knobs
+that come and go as the office learns what it wants, and a new knob should not
+need a schema migration. Every value is validated on the way in and out, so a
+zero, a negative number, a malformed time or a corrupted row falls back to the
+shipped default rather than producing a nonsensical due date. 12 tests in
+`tests/office-rules.test.ts`.
+
+The old `officeDefaults` export still works for reads, but assigning to it now
+throws — the whole point is that changes survive a restart.
+
 
 ### D3. 🤖 Gmail adapter
 Only if the agency actually needs it. Outlook first.

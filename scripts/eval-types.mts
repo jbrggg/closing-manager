@@ -41,12 +41,17 @@ export interface EvalCase {
     taskCount?: number;
     filing?: "new" | "existing";
     proposesClosing?: boolean;
+    /** Did the app flag this as a possible duplicate of an existing file?
+     *  This is the other half of invariant 4: when the evidence is too weak to
+     *  link two files automatically, it must still raise the flag rather than
+     *  silently starting a fresh file. */
+    duplicateFlagged?: boolean;
   };
 }
 
 export interface Finding {
   ok: boolean;
-  kind: "fact" | "invented" | "task" | "taskCount" | "filing" | "closing";
+  kind: "fact" | "invented" | "task" | "taskCount" | "filing" | "closing" | "duplicate";
   detail: string;
   why?: string;
 }
@@ -62,6 +67,7 @@ export interface EvalCaseResult {
     facts: { type: string; text: string; confidence: number }[];
     tasks: { title: string; category: string; confidence: number }[];
     filing: "new" | "existing" | "unknown";
+    duplicateFlagged: boolean;
   };
   elapsedMs: number;
 }

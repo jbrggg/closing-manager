@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { all } from "@/lib/db";
-import { officeDefaults } from "@/lib/services/office-rules";
+import { getOfficeDefaults, saveOfficeDefaults } from "@/lib/services/office-rules";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { requireApiSession } from "@/lib/auth/guard";
 
@@ -16,8 +16,8 @@ export async function GET() {
 
   return NextResponse.json({
     organizationName: "Keystone Title & Settlement",
-    timezone: officeDefaults.timezone,
-    officeDefaults,
+    timezone: getOfficeDefaults().timezone,
+    officeDefaults: getOfficeDefaults(),
     offices,
     users,
     emailAccounts,
@@ -30,10 +30,11 @@ export async function PATCH(req: Request) {
   const patchAuth = await requireApiSession("MANAGE_SETTINGS");
   if (patchAuth.failed) return patchAuth.response;
 
-  // Prototype note: settings are held in-memory (officeDefaults) and are not
-  // yet persisted across restarts. A production build would write through
-  // to Organization/Office/AutomationRule tables.
+  // Written through to the OfficeSetting table, so a change survives a
+  // restart (roadmap D2). Every value is validated on the way in — an out of
+  // range number falls back to the shipped default rather than producing a
+  // nonsensical due date.
   const body = await req.json().catch(() => ({}));
-  Object.assign(officeDefaults, body.officeDefaults ?? {});
+  const officeDefaults = saveOfficeDefaults(body.officeDefaults ?? {});
   return NextResponse.json({ ok: true, officeDefaults });
 }

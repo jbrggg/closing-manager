@@ -263,6 +263,38 @@ CREATE TABLE IF NOT EXISTS AutomationRule (
   minConfidence REAL NOT NULL DEFAULT 0.95
 );
 
+-- Office policy knobs (roadmap D2). Key/value so a new knob doesn't need a
+-- schema change; every value is validated in src/lib/services/office-rules.ts
+-- before it is written or used.
+CREATE TABLE IF NOT EXISTS OfficeSetting (
+  organizationId TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  updatedAt TEXT NOT NULL,
+  PRIMARY KEY (organizationId, key)
+);
+
+-- Record of one transaction merged into another (roadmap D1). Keeps every
+-- moved row id so an incorrect merge can be reversed exactly; nothing is ever
+-- deleted by a merge.
+CREATE TABLE IF NOT EXISTS TransactionMerge (
+  id TEXT PRIMARY KEY,
+  organizationId TEXT NOT NULL,
+  primaryTransactionId TEXT NOT NULL,
+  secondaryTransactionId TEXT NOT NULL,
+  -- JSON: { "TableName": ["rowId", ...] }
+  movedRowIds TEXT NOT NULL,
+  -- JSON array of ExtractedFact ids marked SUPERSEDED by this merge
+  supersededFactIds TEXT NOT NULL,
+  -- JSON array of TransactionRecord columns the primary inherited
+  inheritedFields TEXT NOT NULL,
+  explanation TEXT,
+  mergedByUserId TEXT,
+  mergedAt TEXT NOT NULL,
+  reversedAt TEXT,
+  reversedByUserId TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_fact_transaction ON ExtractedFact(transactionId);
 CREATE INDEX IF NOT EXISTS idx_task_transaction ON Task(transactionId);
 CREATE INDEX IF NOT EXISTS idx_closing_transaction ON ClosingEvent(transactionId);

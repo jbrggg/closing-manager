@@ -9,7 +9,11 @@ export type TransactionStatus =
   | "CANCELLED"
   | "COMPLETED"
   | "ARCHIVED"
-  | "NEEDS_REVIEW";
+  | "NEEDS_REVIEW"
+  /** Merged into another transaction. The row is kept, never deleted, so any
+   *  audit entry or evidence link pointing at it stays valid. See
+   *  src/lib/services/merge.ts. */
+  | "MERGED";
 
 export type ClosingStatus =
   | "PROPOSED"
@@ -180,4 +184,22 @@ export interface AuditEventRow {
   actorType: "AI" | "HUMAN" | "SYSTEM";
   actorId: string | null;
   createdAt: string;
+}
+
+export interface TransactionMergeRow {
+  id: string;
+  organizationId: string;
+  primaryTransactionId: string;
+  secondaryTransactionId: string;
+  /** JSON: { "TableName": ["rowId", ...] } */
+  movedRowIds: string;
+  /** JSON array of ExtractedFact ids marked SUPERSEDED by this merge. */
+  supersededFactIds: string;
+  /** JSON array of TransactionRecord columns the primary inherited. */
+  inheritedFields: string;
+  explanation: string | null;
+  mergedByUserId: string | null;
+  mergedAt: string;
+  reversedAt: string | null;
+  reversedByUserId: string | null;
 }

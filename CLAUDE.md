@@ -30,6 +30,8 @@ they can read code to check your work.
 | Understand the whole pipeline | `src/lib/ai/process-email.ts` — read this first, it orchestrates everything |
 | Change how emails get filed together | `src/lib/ai/match.ts` — **see invariant 4, ask before touching** |
 | Change what happens on Approve | `src/lib/services/approval.ts` |
+| Merge two files that are really one | `src/lib/services/merge.ts` — preview first, always reversible |
+| Change office due-date defaults | `src/lib/services/office-rules.ts` — `saveOfficeDefaults()`, persisted |
 | See the settlement board / review queue UI | `src/app/board/`, `src/app/review/` |
 | Test the AI on real email | `evals/` + `npm run eval` — read `evals/README.md` |
 | Add a database table | `db/schema.sql` (runtime) **and** `prisma/schema.prisma` (documentation) |
@@ -60,18 +62,22 @@ Working and verified:
   → review queue → approval → live records → audit trail
 - Real Anthropic-backed AI provider — first run successfully against the
   live API on 2026-07-31 (roadmap A2)
-- 98 automated tests, all passing (`npm test`)
+- 132 automated tests, all passing (`npm test`)
 - Accuracy scorecard (`npm run eval`) — runs the real pipeline headless,
   no server and no browser required
 - Outlook/Microsoft Graph adapter: implemented, NEVER run against a live
   tenant
 - Phase 2/3 automation engine: implemented, all rules ship disabled
 
+- Transaction merge, with preview and reverse (roadmap D1)
+- Office defaults persisted to the database (roadmap D2)
+
 Not built:
 - Gmail adapter (scaffold only, throws NotImplementedError)
 - PostgreSQL migration (runs on SQLite via node:sqlite)
-- Transaction merge/split
-- Persisted office deadline defaults (currently in-memory)
+- Transaction *split* (merge is built; reverseMerge covers the common case)
+- Outgoing requests raise no task to chase (roadmap D5 — four real emails hit this)
+- Disbursements / wire matching (roadmap D6)
 - Deployment/hosting
 
 ## Invariants — do not break these without explicit human approval
@@ -100,7 +106,12 @@ Not built:
     The "never add an AM/PM marker" sentence in `llm-provider.ts` is a fix
     for an observed defect, and `tests/llm-provider.test.ts` asserts it is
     still there.
-9. **One lender checklist is one task.** Office rule, decided 2026-07-31 by
+9. **Merging never deletes.** `merge.ts` marks colliding facts `SUPERSEDED`
+    and moves them across; the losing transaction becomes `MERGED`, not
+    removed, so existing evidence links still resolve. Every merge is
+    reversible via its `TransactionMerge` record. Don't "simplify" this into
+    a delete.
+10. **One lender checklist is one task.** Office rule, decided 2026-07-31 by
     the owner. When one party sends a list of requirements, conditions or
     documents for a single purpose, the AI raises ONE request naming the
     list — not one per bullet. Genuinely separate asks (send the CPL *and*

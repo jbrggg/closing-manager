@@ -422,3 +422,37 @@ model AutomationRule {
   enabled        Boolean @default(false)
   minConfidence  Float   @default(0.95)
 }
+
+/// Record of one transaction merged into another (roadmap D1). Keeps every
+/// moved row id so an incorrect merge can be reversed exactly. A merge never
+/// deletes: colliding facts become SUPERSEDED and the losing transaction is
+/// marked MERGED rather than removed, so existing evidence links resolve.
+model TransactionMerge {
+  id                     String    @id @default(uuid())
+  organizationId         String
+  primaryTransactionId   String
+  secondaryTransactionId String
+  /// JSON: { "TableName": ["rowId", ...] }
+  movedRowIds            String
+  /// JSON array of ExtractedFact ids marked SUPERSEDED by this merge
+  supersededFactIds      String
+  /// JSON array of TransactionRecord columns the primary inherited
+  inheritedFields        String
+  explanation            String?
+  mergedByUserId         String?
+  mergedAt               DateTime
+  reversedAt             DateTime?
+  reversedByUserId       String?
+}
+
+/// Office policy knobs (roadmap D2). Key/value so a new knob doesn't need a
+/// schema change; every value is validated in src/lib/services/office-rules.ts
+/// before it is written or used.
+model OfficeSetting {
+  organizationId String
+  key            String
+  value          String
+  updatedAt      DateTime
+
+  @@id([organizationId, key])
+}
