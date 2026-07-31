@@ -10,6 +10,7 @@ import {
   buildGraphSearchQuery,
   scoreGraphResult,
 } from "./graph-mapping";
+import { fetchWithRetry, parseRetryAfter, RetryOptions } from "./graph-retry";
 
 // -----------------------------------------------------------------------------
 // MICROSOFT 365 / OUTLOOK ADAPTER — real Microsoft Graph implementation.
@@ -33,26 +34,49 @@ export class MicrosoftEmailProvider implements EmailProvider {
 
   constructor(
     private readonly emailAccountId: string,
-    private readonly mailboxAddress: string
+    private readonly mailboxAddress: string,
+    /** Overridable so tests can run the retry path without real waiting. */
+    private readonly retryOptions: RetryOptions = {}
   ) {}
 
   private async graphFetch<T>(pathOrUrl: string, init: RequestInit = {}): Promise<T> {
-    const token = await getValidAccessToken(this.emailAccountId);
     const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${GRAPH_BASE}${pathOrUrl}`;
 
-    const response = await fetch(url, {
-      ...init,
-      headers: {
-        ...(init.headers ?? {}),
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
+    // The token is fetched inside the retry closure, not outside it: a first
+    // sync of a large mailbox can spend longer being throttled than an access
+    // token lives, and a retry carrying an expired token just fails again.
+    const response = await fetchWithRetry(
+      async () => {
+        const token = await getValidAccessToken(this.emailAccountId);
+        return fetch(url, {
+          ...init,
+          headers: {
+            ...(init.headers ?? {}),
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
       },
-    });
+      {
+        ...this.retryOptions,
+        onRetry: ({ attempt, delayMs, reason }) => {
+          console.warn(
+            `[microsoft-provider] ${reason}; waiting ${Math.round(delayMs / 1000)}s before attempt ${attempt + 1} (${url})`
+          );
+        },
+      }
+    );
 
     if (response.status === 429) {
-      // Graph asks callers to honour Retry-After rather than hammering.
-      const retryAfter = Number(response.headers.get("retry-after") ?? "5");
-      throw new Error(`Microsoft Graph rate limit hit. Retry after ${retryAfter}s.`);
+      // Still throttled after every retry. Say so plainly — this is the one
+      // Graph error that means "wait", not "something is misconfigured".
+      const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
+      const wait = retryAfter === null ? "a few minutes" : `${Math.round(retryAfter / 1000)}s`;
+      const message =
+        `Microsoft Graph is still rate limiting this mailbox after several retries. ` +
+        `Try again in ${wait}. No mail was lost — the next sync resumes where this one stopped.`;
+      markSyncError(this.emailAccountId, message);
+      throw new Error(message);
     }
     if (!response.ok) {
       const text = await response.text().catch(() => "");
