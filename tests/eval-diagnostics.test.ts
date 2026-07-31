@@ -135,6 +135,57 @@ describe("the pipeline records why an email was filed where it was", () => {
   });
 });
 
+describe("the pipeline records what the AI read, not just what got stored", () => {
+  // This is the bug that made three of seven scorecard failures on 2026-07-31
+  // look like AI errors. A fact the transaction already holds is deliberately
+  // not re-inserted, so it never carries the second email's sourceEmailId — and
+  // the scorecard, reading by sourceEmailId, reported "it found nothing of this
+  // kind" about a fact the AI had read correctly and matched on.
+  it("credits a repeated fact to the email it was read from, even when it is not stored again", async () => {
+    // Identical text in both, so the second email extracts exactly the fact the
+    // transaction already holds and hits the dedup path deliberately.
+    const subject = "New order - 412 Maple Ave";
+    const body = "Opening a new file for 412 Maple Ave. Buyer is Denise Okafor.";
+    addMessage("m-first", subject, body);
+    await processEmailMessage("m-first");
+    addMessage("m-second", subject, body);
+    await processEmailMessage("m-second");
+
+    // The audit trail says what the AI read from the second email, and does so
+    // independently of what `persistFactWithSupersession` decided to store.
+    // That independence is the fix: the scorecard reads this instead of relying
+    // on rows carrying the second email's sourceEmailId.
+    //
+    // The full dedup path (fact read, deliberately not stored) needs the two
+    // emails to land on the SAME file, which takes a shared file or loan number
+    // — and the word-matcher used by this suite extracts neither, topping out
+    // at 55 of the 60 needed. So it is evidenced by the real scorecard run
+    // rather than reproduced here; see evals/last-run.md.
+    const row = all<{ detail: string | null }>(
+      `SELECT detail FROM AuditEvent WHERE eventType = 'facts_extracted' ORDER BY rowid DESC LIMIT 1`
+    )[0];
+    const detail = JSON.parse(row!.detail!) as {
+      messageId: string;
+      extractedFromThisMessage: { type: string; value: unknown }[];
+    };
+    expect(detail.messageId).toBe("m-second");
+    expect(detail.extractedFromThisMessage.map((f) => f.type)).toContain("PROPERTY_ADDRESS");
+  });
+
+  it("attributes facts to the message they came from, not to the whole thread", async () => {
+    addMessage("m-first", "New order - 412 Maple Ave", "Opening a new file for 412 Maple Ave. Buyer is Denise Okafor.");
+    await processEmailMessage("m-first");
+
+    const detail = JSON.parse(
+      all<{ detail: string }>(
+        `SELECT detail FROM AuditEvent WHERE eventType = 'facts_extracted' ORDER BY rowid DESC LIMIT 1`
+      )[0].detail
+    ) as { messageId: string; extractedFromThisMessage: unknown[] };
+    expect(detail.messageId).toBe("m-first");
+    expect(detail.extractedFromThisMessage.length).toBeGreaterThan(0);
+  });
+});
+
 describe("the threshold is read from match.ts, never copied", () => {
   it("finds the real strong-match threshold", () => {
     expect(readStrongMatchThreshold(ROOT)).toBe(60);

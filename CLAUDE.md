@@ -156,13 +156,15 @@ as well and report the before/after score.
   change. `npm run tune` exists for this — it runs the set several times and
   only treats a case as signal when every run agrees. Never accept a prompt
   edit on the strength of one run.
-- **A "MISSED" on a later email in a group may be the dedup system, not the AI.**
-  The scorecard reads facts back by `sourceEmailId`, but
-  `persistFactWithSupersession` deliberately skips a multi-value fact the
-  transaction already holds. So a file number correctly read from the second
-  email of a group is never stored against it and scores as missed. Check
-  `npm run diagnose` — if the identifier is listed under "it had ... to match
-  on", the AI read it and the assertion is what's wrong.
+- **The scorecard grades what the AI *read*, not what got stored.** These differ:
+  `persistFactWithSupersession` deliberately skips a fact the transaction
+  already holds, so a file number correctly read from the second email of a
+  group is never written with that email's `sourceEmailId`. Grading on stored
+  rows alone made three cases look like AI failures when the model had read
+  them perfectly — fixed 2026-07-31 by recording the per-message extraction on
+  the `facts_extracted` audit event and reading that back (15/22 → 17/22, no
+  prompt change). Don't "simplify" the worker back to querying `ExtractedFact`
+  by `sourceEmailId`.
 - **Node 22.5+ required** — uses the built-in `node:sqlite` module.
 - **THE SUITE MUST BE RUN ON WINDOWS BEFORE CLAIMING IT PASSES.** The owner
   runs Windows; most agent sandboxes are Linux. `resetDb()` was silently

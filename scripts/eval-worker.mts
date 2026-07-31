@@ -85,6 +85,34 @@ function identifiersOf(transactionId: string): Identifier[] {
 }
 
 /**
+ * What the AI read out of one message, from the `facts_extracted` audit event
+ * the pipeline writes. Scoped by both the watermark and the message id, so a
+ * later case in the same group cannot be credited with an earlier one's facts.
+ */
+function readFactsExtractedFromMessage(
+  auditWatermark: number,
+  messageId: string
+): { type: string; value: unknown; confidence: number }[] {
+  const row = all<{ detail: string | null }>(
+    `SELECT detail FROM AuditEvent
+     WHERE eventType = 'facts_extracted' AND rowid > ?
+     ORDER BY rowid DESC LIMIT 1`,
+    [auditWatermark]
+  )[0];
+  if (!row?.detail) return [];
+  try {
+    const d = JSON.parse(row.detail) as {
+      messageId?: string;
+      extractedFromThisMessage?: { type: string; value: unknown; confidence: number }[];
+    };
+    if (d.messageId !== messageId) return [];
+    return d.extractedFromThisMessage ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Lift the matching decision out of the throwaway database before it is
  * deleted. Reads the `transaction_matched` audit event this case just wrote —
  * `rowid > watermark` picks out this email's event rather than an earlier
@@ -178,11 +206,24 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     `SELECT factType, structuredValue, confidence, transactionId FROM ExtractedFact WHERE sourceEmailId = ?`,
     [messageId]
   );
+  // What the app STORED against this email...
   const observedFacts = factRows.map((f) => ({
     type: f.factType,
     text: factText(f.structuredValue),
     confidence: f.confidence,
   }));
+
+  // ...plus what the AI READ from it but the app had no reason to store again.
+  // Scoring extraction on stored rows alone punishes the model for the dedup
+  // system working: a fact the transaction already holds is not re-inserted, so
+  // it never carries this email's sourceEmailId. Judged that way, an email that
+  // repeated a file number correctly looked like it had missed it entirely.
+  // The scorecard asks "did it read this?", so that is what it now checks.
+  for (const f of readFactsExtractedFromMessage(auditWatermark, messageId)) {
+    const text = typeof f.value === "object" ? factText(JSON.stringify(f.value)) : String(f.value);
+    if (observedFacts.some((o) => o.type === f.type && o.text === text)) continue;
+    observedFacts.push({ type: f.type, text, confidence: f.confidence });
+  }
 
   const proposalRows = all<{ proposalType: string; payload: string; confidence: number }>(
     `SELECT proposalType, payload, confidence FROM AIProposal WHERE sourceEmailIds LIKE ?`,

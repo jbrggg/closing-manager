@@ -257,6 +257,22 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
       entityType: "TransactionRecord",
       entityId: transactionId,
       summary: `Extracted ${relevantFacts.length} candidate fact(s) from ${new Set(taggedFacts.map((f) => f.sourceEmailId)).size} message(s)`,
+      // What the AI read out of THIS message specifically, before dedup and
+      // supersession decide what is worth storing.
+      //
+      // These two are not the same thing, and the difference used to look like
+      // an AI failure. `persistFactWithSupersession` deliberately does not
+      // re-insert a fact the transaction already holds, so a file number
+      // correctly read from the second email of a thread is never written with
+      // that email's sourceEmailId — and the scorecard, which reads facts back
+      // by sourceEmailId, called it missed. Three of the seven failing cases on
+      // 2026-07-31 were this and not the model.
+      detail: {
+        messageId: message.id,
+        extractedFromThisMessage: relevantFacts
+          .filter((f) => f.sourceEmailId === message.id)
+          .map((f) => ({ type: f.factType, value: f.value, confidence: f.confidence })),
+      },
       actorType: "AI",
     });
 
