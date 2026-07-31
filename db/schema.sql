@@ -226,6 +226,32 @@ CREATE TABLE IF NOT EXISTS ReviewItem (
   decidedByUserId TEXT
 );
 
+-- An email joined to a file on the strength of the property address alone.
+--
+-- Address agreement scores 45 against a strong-match threshold of 60, so this
+-- is NOT a strong match and must never be treated as settled: the same property
+-- legitimately carries more than one transaction over time (a sale, then a
+-- refinance). The office's decision (2026-07-31) is that a bare address match
+-- should still put the email on the file rather than start a second one, and
+-- raise a warning that the file number is missing.
+--
+-- movedFactIds / movedProposalIds record exactly what was written under the
+-- link, so rejecting it moves those rows back out onto a fresh file. Same
+-- shape as TransactionMerge, for the same reason: nothing is undoable unless
+-- you wrote down what you did.
+CREATE TABLE IF NOT EXISTS ProvisionalMatch (
+  id TEXT PRIMARY KEY,
+  transactionId TEXT NOT NULL,
+  sourceEmailId TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  movedFactIds TEXT NOT NULL,
+  movedProposalIds TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ACTIVE',
+  createdAt TEXT NOT NULL,
+  decidedAt TEXT,
+  decidedByUserId TEXT
+);
+
 CREATE TABLE IF NOT EXISTS AIProcessingJob (
   id TEXT PRIMARY KEY,
   emailMessageId TEXT NOT NULL,

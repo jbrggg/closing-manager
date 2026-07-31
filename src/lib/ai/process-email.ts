@@ -4,7 +4,7 @@ import { getActiveEmailProvider } from "@/lib/email";
 import { recordAudit } from "@/lib/services/audit";
 import { getActiveAIProvider } from "./index";
 import { AIProvider, ExtractedFactCandidate } from "./provider";
-import { findBestTransactionMatch } from "./match";
+import { findBestTransactionMatch, STRONG_MATCH_THRESHOLD, type MatchResult } from "./match";
 import { inferTaskDueDate } from "@/lib/services/office-rules";
 import { maybeAutoApprove } from "@/lib/services/automation";
 import { EmailMessageRow, ExtractedFactRow } from "@/types/models";
@@ -55,6 +55,32 @@ async function mapConcurrent<T, R>(
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
+}
+
+/**
+ * May this email be filed on an existing file on the strength of the property
+ * address alone?
+ *
+ * Address agreement is 45 of the 60 needed for a strong match, so this is
+ * deliberately not one — it always produces a warning a human has to answer.
+ * The guards are what make it safe enough to do at all:
+ *
+ * - the address must be the ONLY thing that agreed. If anything else matched
+ *   too, the ordinary scoring already had its say.
+ * - exactly one existing file may agree on the address. Two is the
+ *   sale-then-refinance case: the same property, genuinely different deals,
+ *   and picking one automatically is the false-merge bug invariant 4 was
+ *   written after.
+ * - the candidate must still be a live file. Filing new mail onto something
+ *   already merged away just moves the problem.
+ */
+function isProvisionalAddressMatch(m: MatchResult): boolean {
+  return (
+    m.addressOnly &&
+    m.addressCandidateCount === 1 &&
+    m.transaction !== null &&
+    m.transaction.status !== "MERGED"
+  );
 }
 
 interface TaggedFact extends ExtractedFactCandidate {
@@ -175,6 +201,8 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
     const matchResult = findBestTransactionMatch(ORG_ID, taggedFacts);
     let transactionId: string;
     let ambiguousDuplicateCandidateId: string | null = null;
+    /** Set when this email was filed on an existing file on the address alone. */
+    let provisionalMatchOnto: string | null = null;
 
     // Structured evidence for *why* this email landed where it did. The summary
     // line below already says the score in prose; this records the same decision
@@ -212,6 +240,29 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
         entityType: "TransactionRecord",
         entityId: transactionId,
         summary: `Matched existing transaction (score ${matchResult.score}): ${matchResult.reasons.join("; ")}`,
+        detail: matchDetail,
+        actorType: "AI",
+      });
+    } else if (isProvisionalAddressMatch(matchResult)) {
+      // Address agrees and nothing else does. Office rule, decided 2026-07-31:
+      // put the email on the file rather than start a second one, and warn that
+      // the file number is missing.
+      //
+      // This is NOT a strong match and is not treated as one. The threshold and
+      // weights in match.ts are untouched (invariant 4); this is a separate,
+      // weaker tier that always ends in a human decision. It is guarded to a
+      // single candidate file that is still live — two files sharing an address
+      // is the sale-then-refinance case and stays ambiguous.
+      transactionId = matchResult.transaction!.id;
+      provisionalMatchOnto = transactionId;
+      recordAudit({
+        organizationId: ORG_ID,
+        eventType: "transaction_matched",
+        entityType: "TransactionRecord",
+        entityId: transactionId,
+        summary:
+          `Matched on the property address alone (score ${matchResult.score} of ${STRONG_MATCH_THRESHOLD}) — ` +
+          `filed here provisionally and raised a missing-file-number warning`,
         detail: matchDetail,
         actorType: "AI",
       });
@@ -287,6 +338,15 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
     newProposalIds.push(...(await proposeTasksFromRequests(transactionId, message, aiProvider)));
     newProposalIds.push(...(await proposeCompletionsFromMessage(transactionId, message, aiProvider)));
 
+    // 5b. Warn about an address-only link ------------------------------------
+    // Raised last, so it records everything the email wrote onto the file it
+    // joined. Deliberately NOT added to newProposalIds: an address-only link is
+    // the one thing that must never be auto-approved, whatever confidence any
+    // future automation rule is set to.
+    if (provisionalMatchOnto) {
+      recordProvisionalMatch(provisionalMatchOnto, message, matchResult);
+    }
+
     // 6. Phase 2/3: optional confidence-threshold auto-approval ---------------
     // No-op unless an AutomationRule is enabled for the relevant action type
     // (Phase 1 launch keeps every rule disabled — see src/lib/services/automation.ts).
@@ -361,6 +421,88 @@ function persistFactWithSupersession(transactionId: string, fact: TaggedFact, mo
       modelVersion,
     ]
   );
+}
+
+/**
+ * Write down an address-only link and raise the warning it requires.
+ *
+ * Records the exact rows this email put on the file, so the link can be undone
+ * by moving them back out — the same "write down what you did" approach that
+ * makes a merge reversible (invariant 9). Without this list, undoing would mean
+ * guessing which facts came from where.
+ */
+function recordProvisionalMatch(transactionId: string, message: EmailMessageRow, matchResult: MatchResult) {
+  const factIds = all<{ id: string }>(
+    `SELECT id FROM ExtractedFact WHERE sourceEmailId = ? AND transactionId = ?`,
+    [message.id, transactionId]
+  ).map((r) => r.id);
+  const proposalIds = all<{ id: string }>(
+    `SELECT id FROM AIProposal WHERE transactionId = ? AND sourceEmailIds LIKE ?`,
+    [transactionId, `%${message.id}%`]
+  ).map((r) => r.id);
+
+  const address = matchResult.reasons[0] ?? "the property address";
+  const reason =
+    `This email was filed here because the property address matches, and nothing else did — ` +
+    `no file number, no loan number. Confirm it belongs on this file, and add the file number ` +
+    `so the next email links on its own. If it is a different deal on the same property, reject ` +
+    `this and it will be moved to a file of its own.`;
+
+  const proposalId = randomUUID();
+  run(
+    `INSERT INTO AIProposal (id, transactionId, proposalType, payload, confidence, fieldConfidence, status, idempotencyKey, sourceEmailIds, createdAt)
+     VALUES (?, ?, 'TRANSACTION_LINK', ?, ?, ?, 'PROPOSED', ?, ?, ?)`,
+    [
+      proposalId,
+      transactionId,
+      JSON.stringify({
+        linkedOnAddressAlone: true,
+        evidence: address,
+        score: matchResult.score,
+        threshold: STRONG_MATCH_THRESHOLD,
+        missing: ["FILE_NUMBER"],
+        sourceEmailId: message.id,
+      }),
+      // Confidence is the score as a fraction of what a strong match needs.
+      // Stating it honestly matters: this is the weakest link the app makes.
+      matchResult.score / STRONG_MATCH_THRESHOLD,
+      JSON.stringify({ propertyAddress: 1, fileNumber: 0 }),
+      makeIdempotencyKey(["TRANSACTION_LINK", transactionId, message.id]),
+      JSON.stringify([message.id]),
+      nowIso(),
+    ]
+  );
+
+  run(
+    `INSERT INTO ReviewItem (id, transactionId, proposalId, reviewType, reason, conflictingEvidence, duplicateCandidates, status, createdAt)
+     VALUES (?, ?, ?, 'address_only_link', ?, NULL, NULL, 'PENDING', ?)`,
+    [randomUUID(), transactionId, proposalId, reason, nowIso()]
+  );
+
+  run(
+    `INSERT INTO ProvisionalMatch (id, transactionId, sourceEmailId, reason, movedFactIds, movedProposalIds, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', ?)`,
+    [
+      randomUUID(),
+      transactionId,
+      message.id,
+      reason,
+      JSON.stringify(factIds),
+      JSON.stringify([...proposalIds, proposalId]),
+      nowIso(),
+    ]
+  );
+
+  recordAudit({
+    organizationId: ORG_ID,
+    eventType: "proposal_generated",
+    entityType: "AIProposal",
+    entityId: proposalId,
+    summary:
+      `Filed on the property address alone and raised a missing-file-number warning ` +
+      `(${factIds.length} fact(s) written onto this file, reversible)`,
+    actorType: "AI",
+  });
 }
 
 function makeIdempotencyKey(parts: (string | undefined)[]): string {

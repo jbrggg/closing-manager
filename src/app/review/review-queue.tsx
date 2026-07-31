@@ -179,6 +179,30 @@ export function ReviewQueue({ initialItems }: { initialItems: any[] }) {
                 </dl>
               </div>
 
+              {selected.reviewType === "address_only_link" && (
+                <div className="rounded-sm border border-danger bg-review-bg p-4">
+                  <h3 className="text-[12px] font-semibold uppercase tracking-wide text-danger">
+                    Filed here on the address alone — file number missing
+                  </h3>
+                  <p className="mt-1 text-[12px] text-ink">
+                    The property address matches this file and nothing else does. The email is already on
+                    this file so the work is not lost, but that is weaker evidence than we normally accept:
+                    the same property can genuinely have more than one deal over time, such as a sale and a
+                    later refinance.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-[12px] text-ink">
+                    <li>
+                      <span className="font-semibold">Approve</span> if it belongs here — then add the file
+                      number to this file so the next email links on its own.
+                    </li>
+                    <li>
+                      <span className="font-semibold">Reject</span> if it is a different deal — the email&apos;s
+                      details are moved back off this file onto one of their own. Nothing is deleted.
+                    </li>
+                  </ul>
+                </div>
+              )}
+
               {selected.duplicateTxns?.length > 0 && (
                 <div className="rounded-sm border border-review bg-review-bg p-4">
                   <h3 className="text-[12px] font-semibold uppercase tracking-wide text-review">Possible duplicate transaction</h3>

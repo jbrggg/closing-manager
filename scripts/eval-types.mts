@@ -46,12 +46,17 @@ export interface EvalCase {
      *  link two files automatically, it must still raise the flag rather than
      *  silently starting a fresh file. */
     duplicateFlagged?: boolean;
+    /** Was this filed onto an existing file on the property address alone, with
+     *  the missing-file-number warning raised? Office rule, 2026-07-31: that is
+     *  the right answer when the address agrees and nothing else does — better
+     *  than starting a second file, but weak enough to need a human. */
+    addressOnlyLink?: boolean;
   };
 }
 
 export interface Finding {
   ok: boolean;
-  kind: "fact" | "invented" | "task" | "taskCount" | "filing" | "closing" | "duplicate";
+  kind: "fact" | "invented" | "task" | "taskCount" | "filing" | "closing" | "duplicate" | "link";
   detail: string;
   why?: string;
 }
@@ -101,6 +106,7 @@ export interface EvalCaseResult {
     tasks: { title: string; category: string; confidence: number }[];
     filing: "new" | "existing" | "unknown";
     duplicateFlagged: boolean;
+    addressOnlyLink: boolean;
     /** Null only when the pipeline threw before it got as far as matching. */
     match: MatchEvidence | null;
   };

@@ -194,7 +194,7 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
       passed: false,
       errored: String(err instanceof Error ? err.message : err),
       findings: [],
-      observed: { facts: [], tasks: [], filing: "unknown", duplicateFlagged: false, match: null },
+      observed: { facts: [], tasks: [], filing: "unknown", duplicateFlagged: false, addressOnlyLink: false, match: null },
       elapsedMs: Date.now() - startedAt,
     };
   }
@@ -236,6 +236,8 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
       return { title: payload.title ?? "", category: payload.category ?? "", confidence: p.confidence };
     });
   const proposedClosing = proposalRows.some((p) => p.proposalType.startsWith("CLOSING_"));
+  // Filed onto an existing file on the address alone, with the warning raised.
+  const addressOnlyLink = proposalRows.some((p) => p.proposalType === "TRANSACTION_LINK");
 
   const transactionId = factRows[0]?.transactionId ?? null;
 
@@ -359,6 +361,29 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     );
   }
 
+  if (e.addressOnlyLink !== undefined) {
+    findings.push(
+      addressOnlyLink === e.addressOnlyLink
+        ? {
+            ok: true,
+            kind: "link",
+            detail: e.addressOnlyLink
+              ? "filed onto the existing file on the address alone and warned that the file number is missing, as expected"
+              : "did not make an address-only link, as expected",
+          }
+        : {
+            ok: false,
+            kind: "link",
+            detail: e.addressOnlyLink
+              ? "expected it to be filed on the existing file on the address alone, with a missing-file-number warning — no warning was raised"
+              : "made an address-only link when it should not have",
+            why: e.addressOnlyLink
+              ? "When the address is the only thing that agrees, the email belongs on the file with a warning — not on a second file of its own."
+              : "An address-only link is the weakest link the app makes; it must not be made when something stronger already decided.",
+          }
+    );
+  }
+
   if (e.proposesClosing !== undefined) {
     findings.push(
       proposedClosing === e.proposesClosing
@@ -377,7 +402,7 @@ async function runCase(c: EvalCase, accountId: string): Promise<EvalCaseResult> 
     note: c.note,
     passed: findings.every((f) => f.ok),
     findings,
-    observed: { facts: observedFacts, tasks: observedTasks, filing, duplicateFlagged, match: matchEvidence },
+    observed: { facts: observedFacts, tasks: observedTasks, filing, duplicateFlagged, addressOnlyLink, match: matchEvidence },
     elapsedMs: Date.now() - startedAt,
   };
 }

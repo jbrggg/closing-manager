@@ -47,7 +47,11 @@ export type ProposalType =
   | "CLOSING_CANCEL"
   | "TASK_CREATE"
   | "TASK_COMPLETE"
-  | "TRANSACTION_MERGE";
+  | "TRANSACTION_MERGE"
+  // An email filed onto an existing file on the property address alone, awaiting
+  // confirmation that it belongs there. Approving confirms; rejecting moves the
+  // email's details back onto a file of their own.
+  | "TRANSACTION_LINK";
 
 export type FactType =
   | "PROPERTY_ADDRESS"

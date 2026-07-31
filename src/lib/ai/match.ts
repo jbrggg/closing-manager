@@ -7,9 +7,16 @@ export interface MatchResult {
   score: number;
   isStrongMatch: boolean; // >= threshold for auto-linking without review
   reasons: string[];
+  /** The only thing that agreed was the property address. */
+  addressOnly: boolean;
+  /** How many existing files agree on the address. More than one is ambiguous
+   *  and must never be resolved automatically. */
+  addressCandidateCount: number;
 }
 
-const STRONG_MATCH_THRESHOLD = 60;
+/** Exported so callers can explain the decision without copying the number.
+ *  Changing it still requires a human decision — see invariant 4. */
+export const STRONG_MATCH_THRESHOLD = 60;
 const WEAK_SIGNAL_ONLY_CAP = 20; // shared surname / generic subject alone never exceeds this
 
 function normalizeAddress(addr: string): string {
@@ -20,7 +27,35 @@ function normalizeAddress(addr: string): string {
     .replace(/\bavenue\b/g, "ave")
     .replace(/\broad\b/g, "rd")
     .replace(/\bdrive\b/g, "dr")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Do two written addresses describe the same place?
+ *
+ * Exact equality after normalising was too strict, and it cost a real duplicate
+ * flag: one email said "1274 Danforth Ave" and another said "1274 Danforth
+ * Ave., Jersey City NJ". Obviously the same property; scored zero.
+ *
+ * The rule is that the shorter address must be a leading run of the longer one,
+ * token by token. That accepts a bare street address against the same address
+ * with its town and state appended, and rejects two different properties on the
+ * same street, because the house number is the first token and must match.
+ *
+ * It is deliberately a PREFIX test, not "contains". "14 Ridgeview Ct" must not
+ * match "914 Ridgeview Ct", and a town-only overlap must never be enough —
+ * a shared city is exactly the weak signal invariant 4 exists to reject.
+ */
+export function addressesMatch(a: string, b: string): boolean {
+  const at = normalizeAddress(a).split(" ").filter(Boolean);
+  const bt = normalizeAddress(b).split(" ").filter(Boolean);
+  // A house number plus a street name at minimum — a lone token is not an
+  // address, and treating it as one would link everything on the street.
+  if (at.length < 2 || bt.length < 2) return false;
+
+  const [shorter, longer] = at.length <= bt.length ? [at, bt] : [bt, at];
+  return shorter.every((token, i) => token === longer[i]);
 }
 
 /**
@@ -49,7 +84,18 @@ export function findBestTransactionMatch(
     [organizationId]
   );
 
-  let best: MatchResult = { transaction: null, score: 0, isStrongMatch: false, reasons: [] };
+  let best: MatchResult = {
+    transaction: null,
+    score: 0,
+    isStrongMatch: false,
+    reasons: [],
+    addressOnly: false,
+    addressCandidateCount: 0,
+  };
+  // Counted across ALL files, not just the best one. Two files agreeing on the
+  // address is the sale-then-refinance case, and it must not be resolved
+  // automatically however it scores.
+  let addressCandidateCount = 0;
 
   for (const txn of transactions) {
     const existingFacts = all<ExtractedFactRow>(
@@ -57,15 +103,22 @@ export function findBestTransactionMatch(
       [txn.id]
     );
     const { score, reasons } = scoreAgainstTransaction(newFacts, existingFacts);
+    if (reasons.some((r) => r.startsWith("Matching property address"))) addressCandidateCount++;
     if (score > best.score) {
       best = {
         transaction: txn,
         score,
         isStrongMatch: score >= STRONG_MATCH_THRESHOLD,
         reasons,
+        addressOnly: false,
+        addressCandidateCount: 0,
       };
     }
   }
+
+  best.addressCandidateCount = addressCandidateCount;
+  best.addressOnly =
+    best.reasons.length > 0 && best.reasons.every((r) => r.startsWith("Matching property address"));
 
   return best;
 }
@@ -83,9 +136,7 @@ function scoreAgainstTransaction(
   for (const fact of newFacts) {
     if (fact.factType === "PROPERTY_ADDRESS") {
       const newAddr = normalizeAddress(String(fact.value));
-      const hit = existingByType("PROPERTY_ADDRESS").some(
-        (v) => normalizeAddress(String(v)) === newAddr
-      );
+      const hit = existingByType("PROPERTY_ADDRESS").some((v) => addressesMatch(String(v), newAddr));
       if (hit) {
         score += 45;
         reasons.push(`Matching property address ("${fact.value}")`);

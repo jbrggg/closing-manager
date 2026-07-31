@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { get, run, nowIso } from "@/lib/db";
 import { recordAudit } from "./audit";
+import { confirmProvisionalMatch, findActiveProvisionalMatch, undoProvisionalMatch } from "./provisional-match";
 import { AIProposalRow, ReviewItemRow } from "@/types/models";
 
 const ORG_ID = "org-demo";
@@ -16,7 +17,7 @@ export function approveReviewItem(reviewItemId: string, decidedByUserId?: string
   const payload = editedPayload ?? JSON.parse(proposal.payload);
   const wasEdited = Boolean(editedPayload);
 
-  applyProposal(proposal, payload);
+  applyProposal(proposal, payload, decidedByUserId);
 
   run(`UPDATE AIProposal SET status = 'HUMAN_APPROVED' WHERE id = ?`, [proposal.id]);
   run(
@@ -48,6 +49,19 @@ export function rejectReviewItem(reviewItemId: string, decidedByUserId?: string,
   if (!review) throw new Error("Review item not found");
   if (review.status !== "PENDING") throw new Error("Review item already decided");
 
+  const proposal = get<AIProposalRow>(`SELECT * FROM AIProposal WHERE id = ?`, [review.proposalId]);
+
+  // Rejecting an address-only link means "this is a different deal on the same
+  // property". The email's facts are already on the file, so saying no has to
+  // actually take them back off — otherwise the warning is decorative and the
+  // wrong-file mistake stands.
+  let undone: { newTransactionId: string; movedFacts: number } | null = null;
+  if (proposal?.proposalType === "TRANSACTION_LINK") {
+    const payload = JSON.parse(proposal.payload) as { sourceEmailId?: string };
+    const pm = payload.sourceEmailId ? findActiveProvisionalMatch(payload.sourceEmailId) : null;
+    if (pm) undone = undoProvisionalMatch(pm.id, decidedByUserId);
+  }
+
   run(`UPDATE AIProposal SET status = 'HUMAN_REJECTED' WHERE id = ?`, [review.proposalId]);
   run(
     `UPDATE ReviewItem SET status = 'REJECTED', decidedAt = ?, decidedByUserId = ? WHERE id = ?`,
@@ -59,13 +73,15 @@ export function rejectReviewItem(reviewItemId: string, decidedByUserId?: string,
     eventType: "human_decision",
     entityType: "ReviewItem",
     entityId: reviewItemId,
-    summary: `Rejected proposal${explanation ? `: ${explanation}` : ""}`,
+    summary:
+      `Rejected proposal${explanation ? `: ${explanation}` : ""}` +
+      (undone ? ` — moved ${undone.movedFacts} fact(s) onto a file of their own` : ""),
     actorType: "HUMAN",
     actorId: decidedByUserId,
   });
 }
 
-function applyProposal(proposal: AIProposalRow, payload: any) {
+function applyProposal(proposal: AIProposalRow, payload: any, decidedByUserId?: string) {
   switch (proposal.proposalType) {
     case "CLOSING_CREATE": {
       const closingId = randomUUID();
@@ -148,6 +164,15 @@ function applyProposal(proposal: AIProposalRow, payload: any) {
          VALUES (?, ?, ?, ?, ?)`,
         [randomUUID(), payload.taskId, payload.evidenceEmailId, payload.summary, nowIso()]
       );
+      break;
+    }
+    case "TRANSACTION_LINK": {
+      // The email is already on this file — that happened when it was read.
+      // Approving confirms it, which is why there is nothing to write here
+      // beyond closing the provisional record. Rejecting is the side that does
+      // work; see rejectReviewItem.
+      const pm = findActiveProvisionalMatch(payload.sourceEmailId);
+      if (pm) confirmProvisionalMatch(pm.id, decidedByUserId);
       break;
     }
     default:
