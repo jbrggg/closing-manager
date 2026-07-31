@@ -73,11 +73,44 @@ function findCaseFiles(dir: string): string[] {
     });
 }
 
+/** Read one case file, explaining the problem in plain English if it's not
+ *  valid JSON — a typo in a hand-written case file should not produce a stack
+ *  trace, and an empty file should be skipped rather than stopping the run. */
+function readCaseFile(file: string): EvalCase[] {
+  const shown = path.relative(ROOT, file);
+  const text = fs.readFileSync(file, "utf-8");
+
+  if (text.trim() === "") {
+    console.log(`Skipping ${shown} — the file is empty.\n`);
+    return [];
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (err) {
+    console.error(
+      `\nThere is a typo in ${shown} and the scorecard can't read it.\n\n` +
+        `  ${err instanceof Error ? err.message : String(err)}\n\n` +
+        `Common causes: a missing comma between two lines, a missing closing } or ],\n` +
+        `a stray comma after the last item in a list, or a " inside the email text that\n` +
+        `needs to be written as \\". Compare it against evals/cases/explicit-request.json.\n`
+    );
+    process.exit(2);
+  }
+
+  const cases = Array.isArray(raw) ? (raw as EvalCase[]) : [raw as EvalCase];
+  for (const c of cases) {
+    if (!c?.id || !c?.body) {
+      console.error(`\n${shown} is missing a required field. Every case needs at least "id" and "body".\n`);
+      process.exit(2);
+    }
+  }
+  return cases;
+}
+
 const allCases: EvalCase[] = findCaseFiles(CASES_DIR)
-  .flatMap((file) => {
-    const raw = JSON.parse(fs.readFileSync(file, "utf-8"));
-    return Array.isArray(raw) ? (raw as EvalCase[]) : [raw as EvalCase];
-  })
+  .flatMap(readCaseFile)
   .filter((c) => !only || c.id.toLowerCase().includes(only.toLowerCase()));
 
 if (allCases.length === 0) {
