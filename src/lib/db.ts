@@ -60,14 +60,64 @@ export function run(sql: string, params: unknown[] = []) {
   return stmt.run(...(params as never[]));
 }
 
-export function resetDb() {
+/** Close the open connection, if there is one. Safe to call repeatedly. */
+export function closeDb() {
   try {
-    fs.unlinkSync(DB_PATH);
+    global.__closingManagerDb?.close();
   } catch {
-    // no-op if file doesn't exist
+    // already closed, or never opened
   }
   global.__closingManagerDb = undefined;
+}
+
+/**
+ * Delete every row in every table, leaving the schema intact.
+ *
+ * This is the fallback path for `resetDb()` when the database file cannot be
+ * removed — see the Windows note there. Exported so it can be tested directly,
+ * because on Linux the unlink always succeeds and this branch would otherwise
+ * never run in CI.
+ */
+export function clearAllTables() {
+  const db = getDb();
+  const tables = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
+    .all() as { name: string }[];
+
+  db.exec("PRAGMA foreign_keys = OFF;");
+  for (const t of tables) db.exec(`DELETE FROM "${t.name}";`);
+  db.exec("PRAGMA foreign_keys = ON;");
+}
+
+/**
+ * Throw the database away and start from an empty one.
+ *
+ * WINDOWS, THE HARD WAY: this used to be `fs.unlinkSync()` inside a bare
+ * try/catch. On Linux, unlinking a file that still has an open handle
+ * succeeds — the old inode lives on until the handle closes, and the next
+ * connection creates a fresh file. On Windows it throws EBUSY/EPERM instead,
+ * the catch swallowed it, and `getDb()` then opened a SECOND connection to
+ * the same still-populated file. The reset silently did nothing, and every
+ * test that reseeds fixed ids failed with "UNIQUE constraint failed".
+ *
+ * Two changes: close the handle before unlinking, and if the file still
+ * cannot be removed, empty it instead. A reset must always be a reset.
+ */
+export function resetDb() {
+  closeDb();
+
+  let removed = true;
+  try {
+    fs.unlinkSync(DB_PATH);
+  } catch (err) {
+    // ENOENT just means there was nothing to delete, which is fine. Anything
+    // else (a lock held by antivirus, an indexer, a stray handle) means the
+    // file survived and we have to clear it by hand.
+    removed = (err as NodeJS.ErrnoException)?.code === "ENOENT";
+  }
+
   getDb();
+  if (!removed) clearAllTables();
 }
 
 export function nowIso(): string {

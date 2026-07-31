@@ -62,7 +62,7 @@ Working and verified:
   → review queue → approval → live records → audit trail
 - Real Anthropic-backed AI provider — first run successfully against the
   live API on 2026-07-31 (roadmap A2)
-- 132 automated tests, all passing (`npm test`)
+- 139 automated tests, all passing (`npm test`)
 - Accuracy scorecard (`npm run eval`) — runs the real pipeline headless,
   no server and no browser required
 - Outlook/Microsoft Graph adapter: implemented, NEVER run against a live
@@ -141,6 +141,12 @@ as well and report the before/after score.
 ## Things that are true and easy to get wrong
 
 - **Node 22.5+ required** — uses the built-in `node:sqlite` module.
+- **THE SUITE MUST BE RUN ON WINDOWS BEFORE CLAIMING IT PASSES.** The owner
+  runs Windows; most agent sandboxes are Linux. `resetDb()` was silently
+  broken on Windows for weeks while reporting 132/132 green on Linux, because
+  unlinking an open file succeeds on Linux and throws EBUSY on Windows. Any
+  code that deletes, renames or locks a file is a candidate for the same trap.
+  See `tests/db-reset.test.ts`.
 - **`node:sqlite` returns null-prototype rows.** They must be spread into
   plain objects before crossing a Server→Client Component boundary or
   Next.js throws. `src/lib/db.ts` already does this; don't undo it.
