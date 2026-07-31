@@ -106,9 +106,19 @@ about for that email.
 `contains` is a partial, case-insensitive match, so `"contains": "Kowalski"`
 passes whether the AI recorded `Kowalski` or `Anna Kowalski`.
 
-The types you can use: `PROPERTY_ADDRESS`, `BUYER_NAME`, `SELLER_NAME`,
-`LENDER_NAME`, `ATTORNEY_NAME`, `REALTOR_NAME`, `CLOSING_DATE`,
-`CLOSING_TIME`, `CLOSING_LOCATION`, `FILE_NUMBER`, `LOAN_NUMBER`, `MILESTONE`.
+**These are the only nine types you can check**, because these are the only
+ones the app files against a transaction:
+
+`PROPERTY_ADDRESS` · `BUYER_NAME` · `SELLER_NAME` · `CLOSING_DATE` ·
+`CLOSING_TIME` · `CLOSING_LOCATION` · `FILE_NUMBER` · `LOAN_NUMBER` ·
+`MILESTONE`
+
+The AI can also *recognise* `LENDER_NAME`, `ATTORNEY_NAME`, `REALTOR_NAME`,
+`DEADLINE`, `REQUEST` and `OTHER`, but the pipeline does not store them
+(`src/lib/ai/process-email.ts`, `relevantFacts`). Asking for one of those in
+a case will fail every time no matter how well the AI reads the email — it is
+testing something the app was never built to keep. If you want one of them
+stored, that is a change to the app, not to your test.
 
 **`mustNotSay`** — things it should *not* have invented. This is how you catch
 the AI adding detail the email never contained, which is more dangerous than
