@@ -97,7 +97,34 @@ inventing an AM/PM the email never stated.
 
 ---
 
-### A4. ✋ OPEN DECISION — direction is per-mailbox, not per-person
+### A4. ✅ DECIDED 2026-07-31 — direction becomes per-person
+**Owner's decision:** differentiate mail sent by *the signed-in user*, mail
+sent by *a colleague in our office*, and mail from *outside*. Incoming vs
+outgoing then falls out automatically for each user rather than being one
+org-wide label. This is option 3 below.
+
+Consequences to work through before building:
+- `EmailMessage.direction` stops being a stored column and becomes something
+  resolved at read time from the viewing user's own addresses. The Graph
+  adapter currently writes it at ingest (`graph-mapping.ts`).
+- A third category appears — **internal**: sent by a colleague, received by
+  me. Today those look identical to outside mail. Several real cases in
+  `evals/cases/private/` are exactly this shape (`hud-sent-for-approval`,
+  `payoff-letter-request`), and they are the ones where "should this raise a
+  task?" is genuinely unclear. Internal mail is often *the instruction to
+  act*, so it probably should.
+- The `direction` field in eval cases will need a third value, and the
+  `taskCount: 0` assertions on outgoing mail will need revisiting alongside
+  D5.
+- Every extracted fact and proposal must still resolve identically for all
+  users — only *whose task it is* changes, never *what the email said*.
+
+**Do not start this before Phase B.** It should be built against real mailbox
+data, once we can see how much internal mail actually flows between the
+shared inboxes.
+
+<details><summary>Original write-up of the problem and the three options</summary>
+
 Raised 2026-07-31 while building eval cases.
 
 `src/lib/email/graph-mapping.ts` decides `INCOMING` vs `OUTGOING` by
@@ -126,9 +153,7 @@ Options, roughly in order of effort:
    work, and it changes the `EmailMessage.direction` column into something
    computed rather than stored.
 
-**Do not decide this by guessing.** It should be settled with real mailbox
-data during Phase B, once we can see how much internal mail actually flows
-between the shared inboxes.
+</details>
 
 ---
 
