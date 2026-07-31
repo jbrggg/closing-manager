@@ -34,6 +34,8 @@ they can read code to check your work.
 | Change office due-date defaults | `src/lib/services/office-rules.ts` — `saveOfficeDefaults()`, persisted |
 | See the settlement board / review queue UI | `src/app/board/`, `src/app/review/` |
 | Test the AI on real email | `evals/` + `npm run eval` — read `evals/README.md` |
+| Find out why an email was filed where it was | `npm run diagnose` — `scripts/explain-filing.mts` |
+| Change the prompt safely | `npm run tune` — `scripts/tune.mts`, reverts anything that isn't better |
 | Add a database table | `db/schema.sql` (runtime) **and** `prisma/schema.prisma` (documentation) |
 | Query the database | `src/lib/db.ts` — hand-written SQL, not an ORM |
 
@@ -46,7 +48,13 @@ npm run verify       # type check + tests + linter, all at once  <- use this
 npm run verify:full  # the above plus the production build
 npm run eval         # score the AI against the real emails in evals/cases/
 npm run eval -- --simulated   # same, using the free word-matcher, costs nothing
+npm run diagnose     # same as eval, plus WHY each email was filed where it was
+npm run tune         # measure the prompt over several runs; see below
 ```
+
+`npm run tune -- --apply <file>` swaps in a candidate `llm-provider.ts`, scores
+it, and **puts the original back unless it is genuinely better**. That is
+invariant 8 made mechanical rather than a promise.
 
 Demo sign-in: `dana@keystonetitle.com` / `KeystoneDemo2026!` (published, not
 a secret, must be rotated before real use).
@@ -140,6 +148,20 @@ as well and report the before/after score.
 
 ## Things that are true and easy to get wrong
 
+- **The scorecard is not deterministic.** Measured 2026-07-31: three runs of the
+  same two emails produced three different sets of failures, and the same case
+  swung between "missed six facts and filed nothing" and "missed one task".
+  A single before/after comparison therefore proves nothing about a prompt
+  change. `npm run tune` exists for this — it runs the set several times and
+  only treats a case as signal when every run agrees. Never accept a prompt
+  edit on the strength of one run.
+- **A "MISSED" on a later email in a group may be the dedup system, not the AI.**
+  The scorecard reads facts back by `sourceEmailId`, but
+  `persistFactWithSupersession` deliberately skips a multi-value fact the
+  transaction already holds. So a file number correctly read from the second
+  email of a group is never stored against it and scores as missed. Check
+  `npm run diagnose` — if the identifier is listed under "it had ... to match
+  on", the AI read it and the assertion is what's wrong.
 - **Node 22.5+ required** — uses the built-in `node:sqlite` module.
 - **THE SUITE MUST BE RUN ON WINDOWS BEFORE CLAIMING IT PASSES.** The owner
   runs Windows; most agent sandboxes are Linux. `resetDb()` was silently
