@@ -97,6 +97,41 @@ inventing an AM/PM the email never stated.
 
 ---
 
+### A4. ✋ OPEN DECISION — direction is per-mailbox, not per-person
+Raised 2026-07-31 while building eval cases.
+
+`src/lib/email/graph-mapping.ts` decides `INCOMING` vs `OUTGOING` by
+comparing the sender against **the one connected mailbox address**. That is
+correct for a single shared closing mailbox, which is what the README
+recommends starting with.
+
+But the agency has several people and several shared inboxes (`refi@`,
+`purchase@`, `info@`). An email sent by `purchase@` and copied to `refi@` is
+genuinely **outgoing for the person who sent it and incoming for the person
+who received it** — and the app currently has to pick one.
+
+This matters because direction is not cosmetic: `INCOMING` makes the AI look
+for requests and raise tasks, `OUTGOING` makes it look for completions.
+Getting it wrong makes the AI look broken when it isn't.
+
+Options, roughly in order of effort:
+1. **Keep one connected mailbox** and accept org-level direction. Simplest,
+   works today, and is what the eval cases currently assume.
+2. **Connect several mailboxes**, keep direction org-relative — treat any
+   address belonging to the organisation as "us". An internal `purchase@` →
+   `refi@` email becomes OUTGOING and stops raising tasks, which may be
+   wrong: those internal forwards often *are* the instruction to act.
+3. **Make direction per-user** — store the message once, resolve direction at
+   read time from the signed-in user's own addresses. Most correct, most
+   work, and it changes the `EmailMessage.direction` column into something
+   computed rather than stored.
+
+**Do not decide this by guessing.** It should be settled with real mailbox
+data during Phase B, once we can see how much internal mail actually flows
+between the shared inboxes.
+
+---
+
 ## Phase B — Connect the real mailbox
 
 Do not start before Phase A passes.

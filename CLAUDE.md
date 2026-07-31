@@ -100,6 +100,12 @@ Not built:
     The "never add an AM/PM marker" sentence in `llm-provider.ts` is a fix
     for an observed defect, and `tests/llm-provider.test.ts` asserts it is
     still there.
+9. **One lender checklist is one task.** Office rule, decided 2026-07-31 by
+    the owner. When one party sends a list of requirements, conditions or
+    documents for a single purpose, the AI raises ONE request naming the
+    list — not one per bullet. Genuinely separate asks (send the CPL *and*
+    confirm the payoff) still split. Both halves are asserted in
+    `tests/llm-provider.test.ts`; don't loosen either without asking.
 
 ## Verification — required before claiming any milestone is done
 

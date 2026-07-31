@@ -213,6 +213,20 @@ describe("the extraction instructions the model receives", () => {
     expect(calls[0].system).toContain("record the time exactly as written");
   });
 
+  it("OFFICE RULE: a lender checklist is one task, not one task per bullet", async () => {
+    // Decided 2026-07-31. A lender's list of closing/funding requirements is
+    // a single piece of work for one person, not eight separate to-dos. But
+    // genuinely separate asks must still split — see the assertion below.
+    stubFetch(() => apiResponse(FULL_ANALYSIS));
+    const { provider } = await freshProvider();
+    await provider.extractFacts(msg(), []);
+
+    expect(calls[0].system).toContain("report ONE request covering that list as a whole");
+    expect(calls[0].system).toContain("not one per bullet point");
+    // ...and the instruction to split genuinely distinct asks survives.
+    expect(calls[0].system).toContain("genuinely separate things");
+  });
+
   it("tells the model not to resolve relative dates itself", async () => {
     stubFetch(() => apiResponse(FULL_ANALYSIS));
     const { provider } = await freshProvider();

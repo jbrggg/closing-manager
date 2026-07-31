@@ -135,7 +135,13 @@ const REQUEST_INSTRUCTIONS =
   "You detect action requests (explicit or implicit) in an incoming email to a title agency. " +
   "Distinguish a request for action from mere information, a completed action, a conditional future " +
   "action, a closing appointment, and a deadline mention with no request attached. Split a single " +
-  "email into multiple requests if it asks for more than one distinct thing.";
+  "email into multiple requests when it asks for genuinely separate things that different people " +
+  "could work on independently — for example sending a CPL and confirming a payoff was ordered. " +
+  "But when one party sends a standing list of requirements, conditions or documents needed for a " +
+  "single purpose — lender closing requirements, funding conditions, a checklist of items needed " +
+  "before approval — report ONE request covering that list as a whole, not one per bullet point. " +
+  "Eight bullets from one lender about one closing is one task, and its title should name the list " +
+  "(for example \"Answer lender closing requirements\"), not the first bullet.";
 
 const COMPLETION_INSTRUCTIONS =
   "You determine whether an outgoing email from a title agency indicates that a previously requested " +
