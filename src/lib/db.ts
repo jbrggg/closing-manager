@@ -20,11 +20,43 @@ declare global {
 const DB_PATH = process.env.CLOSING_MANAGER_DB_PATH ?? path.join(process.cwd(), "db", "app.db");
 const SCHEMA_PATH = path.join(process.cwd(), "db", "schema.sql");
 
+/**
+ * Columns added to a table that already exists somewhere.
+ *
+ * `db/schema.sql` is all `CREATE TABLE IF NOT EXISTS`, which means a new column
+ * reaches a brand-new database and silently misses every database that already
+ * exists — including the owner's. That failure shows up as "no such column" at
+ * the moment the feature is used, which is the worst time to find out.
+ *
+ * This is deliberately not a migration framework. Adding a column is the only
+ * schema change that has ever been needed after the fact; anything structural
+ * (renaming, dropping, changing a type) should be done properly rather than
+ * bolted on here.
+ */
+const ADDITIVE_COLUMNS: { table: string; column: string; definition: string }[] = [
+  // What the last sync actually did, for the dashboard's sync health panel.
+  { table: "EmailAccount", column: "lastSyncSummary", definition: "TEXT" },
+  { table: "EmailAccount", column: "lastSyncFinishedAt", definition: "TEXT" },
+];
+
+function applyAdditiveColumns(db: DatabaseSync) {
+  for (const { table, column, definition } of ADDITIVE_COLUMNS) {
+    const exists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name = ?`).get(table);
+    if (!exists) continue;
+
+    const columns = db.prepare(`PRAGMA table_info("${table}")`).all() as { name: string }[];
+    if (columns.some((c) => c.name === column)) continue;
+
+    db.exec(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${definition};`);
+  }
+}
+
 function createConnection(): DatabaseSync {
   const db = new DatabaseSync(DB_PATH);
   db.exec("PRAGMA foreign_keys = ON;");
   const schema = fs.readFileSync(SCHEMA_PATH, "utf-8");
   db.exec(schema);
+  applyAdditiveColumns(db);
   return db;
 }
 

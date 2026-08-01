@@ -31,6 +31,10 @@ interface TokenResponse {
   refresh_token?: string;
   expires_in: number;
   token_type: string;
+  /** Space-separated list of what was actually granted, which can be less
+   *  than what was asked for. The absence of offline_access here is why a
+   *  connection can succeed and then die an hour later. */
+  scope?: string;
 }
 
 function tenant(): string {

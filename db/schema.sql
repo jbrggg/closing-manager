@@ -58,7 +58,14 @@ CREATE TABLE IF NOT EXISTS EmailAccount (
   providerAccountId TEXT,
   -- Microsoft Graph delta link for incremental sync (opaque URL).
   deltaLink TEXT,
-  lastSyncError TEXT
+  lastSyncError TEXT,
+  -- What the last sync run did ("4 fetched, 4 processed"), and when it ended.
+  -- Shown on the dashboard so a scheduled sync can be seen to be alive even
+  -- when the mailbox is quiet and nothing new arrived.
+  -- NOTE: these two are also listed in ADDITIVE_COLUMNS in src/lib/db.ts, which
+  -- is what adds them to a database that already exists. Keep both in step.
+  lastSyncSummary TEXT,
+  lastSyncFinishedAt TEXT
 );
 
 CREATE TABLE IF NOT EXISTS EmailThread (
