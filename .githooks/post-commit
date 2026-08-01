@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Push to GitHub after every commit, so the backup is never stale.
+#
+# Why this exists: for eleven commits nobody ran `git push`. Committing was
+# treated as the discipline, and it isn't — a commit only writes to the .git
+# folder on this laptop. Everything since the last push lived in exactly one
+# place, on one machine, which is the situation the repo was set up to avoid.
+#
+# Deliberately cannot break anything:
+#   - if there is no `origin`, it does nothing
+#   - if the network is down or the push is rejected, the commit still stands
+#   - it never blocks, prompts, or opens a browser (GIT_TERMINAL_PROMPT=0)
+#
+# A push that fails prints one line so it is visible, and the next successful
+# commit pushes everything that queued up behind it.
+
+# Nothing to push to.
+git remote get-url origin >/dev/null 2>&1 || exit 0
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+[ -z "$branch" ] && exit 0
+[ "$branch" = "HEAD" ] && exit 0   # detached, mid-rebase — leave it alone
+
+# Never hang waiting for credentials. If they aren't cached, fail fast and
+# say so rather than freezing a commit behind an invisible prompt.
+if GIT_TERMINAL_PROMPT=0 git push --quiet origin "$branch" 2>/dev/null; then
+  exit 0
+fi
+
+echo "  ! Backup to GitHub did not go through. The commit is safe locally."
+echo "    Run 'npm run backup' when you are back online."
+exit 0

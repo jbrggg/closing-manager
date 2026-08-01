@@ -19,7 +19,8 @@
     "smoke": "tsx scripts/smoke.mts",
     "verify": "node scripts/verify.mjs",
     "verify:full": "node scripts/verify.mjs --build",
-    "import": "tsx scripts/import-mail.mts"
+    "import": "tsx scripts/import-mail.mts",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
