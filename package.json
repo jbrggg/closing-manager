@@ -18,7 +18,8 @@
     "tune": "tsx scripts/tune.mts",
     "smoke": "tsx scripts/smoke.mts",
     "verify": "node scripts/verify.mjs",
-    "verify:full": "node scripts/verify.mjs --build"
+    "verify:full": "node scripts/verify.mjs --build",
+    "import": "tsx scripts/import-mail.mts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
