@@ -1,25 +1,18 @@
 /**
- * EXPORT THE EVAL CASES FOR TESTING AN AI AGENT BY HAND
+ * EXPORT THE EVAL CASES AS A TEST PACK FOR ANOTHER AI CHAT
  *
- *   npm run export-cases
+ *   npm run export-cases                  one file, paste into an ongoing chat
+ *   npm run export-cases -- --max 8       fewer emails, for a tight context window
+ *   npm run export-cases -- --public-only only the four made-up cases
+ *   npm run export-cases -- --blind       split into test paper + held-back key
  *
- * Produces three files in evals/export/:
+ * DEFAULT MODE (one file) is for a chat where an email intake agent is being
+ * BUILT. There, the expectations are not an answer key to hide — they are the
+ * specification. A builder needs to know what "correct" means.
  *
- *   1-prompt.md        paste this into the agent FIRST
- *   2-emails.md        paste this second — the emails, with NO answers
- *   3-answer-key.md    keep this back; paste it into a SECOND chat to grade
- *
- * WHY THE ANSWERS ARE IN A SEPARATE FILE
- *
- * Every case JSON carries an `expect` block, which is the answer key. Paste a
- * case file into a chat model and you have handed the test-taker the marking
- * scheme — it will score beautifully and you will have learned nothing. The
- * split is the entire point of this script.
- *
- * `npm run eval` does this properly and automatically against the real
- * pipeline. This export exists for the other job: pointing a DIFFERENT agent —
- * a chat model, a competitor's product, a prototype — at the same corpus and
- * comparing.
+ * --blind is for the other job: pointing a finished agent at the corpus to
+ * measure it. Then the expectations must be held back, because a case file
+ * with its `expect` block inline hands the test-taker the marking scheme.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -29,8 +22,15 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const CASES_DIR = path.join(ROOT, "evals", "cases");
 const OUT_DIR = path.join(ROOT, "evals", "export");
 
-const flag = (name: string) => process.argv.includes(`--${name}`);
+const flag = (n: string) => process.argv.includes(`--${n}`);
+const option = (n: string, d: string) => {
+  const i = process.argv.indexOf(`--${n}`);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
+};
+
 const publicOnly = flag("public-only");
+const blind = flag("blind");
+const max = Number(option("max", "0")) || 0;
 
 function findCaseFiles(dir: string): string[] {
   return fs
@@ -39,7 +39,6 @@ function findCaseFiles(dir: string): string[] {
     .flatMap((entry) => {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        // --public-only skips the private folder, which holds real client mail.
         if (publicOnly && entry.name === "private") return [];
         return findCaseFiles(full);
       }
@@ -47,7 +46,7 @@ function findCaseFiles(dir: string): string[] {
     });
 }
 
-const cases: EvalCase[] = findCaseFiles(CASES_DIR).flatMap((file) => {
+let cases: EvalCase[] = findCaseFiles(CASES_DIR).flatMap((file) => {
   const text = fs.readFileSync(file, "utf-8");
   if (!text.trim()) return [];
   const raw = JSON.parse(text);
@@ -59,294 +58,326 @@ if (cases.length === 0) {
   process.exit(2);
 }
 
+// Trim from the end, but never orphan a grouped case from the one that opened
+// its file — a lone second-email-of-a-deal is untestable for filing.
+if (max > 0 && cases.length > max) {
+  const kept = cases.slice(0, max);
+  const groups = new Set(kept.map((c) => c.group).filter(Boolean));
+  cases = cases.filter((c, i) => i < max || (c.group && groups.has(c.group)));
+}
+
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-// --- 2-emails.md : the test paper, with no answers on it ---------------------
+// --- the shared pieces -------------------------------------------------------
 
-const emails: string[] = [
-  "# Test emails",
-  "",
-  `${cases.length} real (anonymised) emails from a title agency's mailbox.`,
-  "",
-  "Process them **in the order given**. Emails sharing a `Deal group` belong to",
-  "the same transaction and must be judged together — a later email in a group",
-  "is testing whether you file it onto the file an earlier one opened.",
-  "",
-  "---",
-  "",
-];
+const N = cases.length;
 
-cases.forEach((c, i) => {
-  emails.push(`## Email ${i + 1} of ${cases.length} — \`${c.id}\``);
-  emails.push("");
-  emails.push(`- **Direction:** ${c.direction ?? "INCOMING"}  ${
-    (c.direction ?? "INCOMING") === "INCOMING"
-      ? "(someone sent this to the agency)"
-      : "(the agency sent this out)"
-  }`);
-  emails.push(`- **From:** ${c.from}`);
-  emails.push(`- **Subject:** ${c.subject}`);
-  if (c.group) emails.push(`- **Deal group:** ${c.group}`);
-  emails.push("");
-  emails.push("```");
-  emails.push(c.body);
-  emails.push("```");
-  emails.push("");
-  emails.push("---");
-  emails.push("");
-});
-
-fs.writeFileSync(path.join(OUT_DIR, "2-emails.md"), emails.join("\n"));
-
-// --- 3-answer-key.md : held back until grading -------------------------------
-
-const key: string[] = [
-  "# Answer key",
-  "",
-  "**Do not paste this into the agent being tested.** It is the marking scheme.",
-  "Paste it into a separate chat together with the agent's answers.",
-  "",
-  "Every line below is a judgement a human made about a real email. Where a",
-  "case says a value must NOT appear, that is guarding against a mistake the",
-  "system actually made at least once.",
-  "",
-  "---",
-  "",
-];
-
-cases.forEach((c, i) => {
-  const e = c.expect ?? {};
-  key.push(`## Email ${i + 1} — \`${c.id}\``);
-  key.push("");
-  if (c.note) key.push(`_${c.note}_`, "");
-
-  if (e.facts?.length) {
-    key.push("**Must extract:**");
-    for (const f of e.facts) key.push(`- ${f.type} containing \`${f.contains}\`${f.why ? ` — ${f.why}` : ""}`);
-    key.push("");
-  }
-  if (e.mustNotSay?.length) {
-    key.push("**Must NOT say (these are traps):**");
-    for (const g of e.mustNotSay) key.push(`- ${g.type} must not contain \`${g.text}\` — ${g.why ?? ""}`);
-    key.push("");
-  }
-  if (e.tasks?.length) {
-    key.push("**Must raise a task about:**");
-    for (const t of e.tasks) key.push(`- \`${t.contains}\`${t.why ? ` — ${t.why}` : ""}`);
-    key.push("");
-  }
-  if (typeof e.taskCount === "number") {
-    key.push(`**Exact task count:** ${e.taskCount}`);
-    if (e.taskCount === 0) key.push("(this email asks for nothing, or is our own outgoing mail)");
-    key.push("");
-  }
-  if (e.filing) {
-    key.push(`**Filing:** ${e.filing === "new" ? "start a NEW file" : "attach to the EXISTING file"}`);
-    key.push("");
-  }
-  if (e.proposesClosing !== undefined) {
-    key.push(`**Propose a closing?** ${e.proposesClosing ? "YES" : "NO — a phantom closing here is a serious error"}`);
-    key.push("");
-  }
-  if (e.duplicateFlagged !== undefined) {
-    key.push(`**Flag as possible duplicate?** ${e.duplicateFlagged ? "YES" : "no"}`);
-    key.push("");
-  }
-  if (e.addressOnlyLink !== undefined) {
-    key.push(`**Address-only link with a missing-file-number warning?** ${e.addressOnlyLink ? "YES" : "no"}`);
-    key.push("");
-  }
-  key.push("---", "");
-});
-
-fs.writeFileSync(path.join(OUT_DIR, "3-answer-key.md"), key.join("\n"));
-
-// --- 1-prompt.md : what to paste first ---------------------------------------
-
-const prompt = `# Paste this FIRST, then paste 2-emails.md
-
----
-
-You are being tested as an **email intake agent for a title insurance agency**
-in Pennsylvania and New Jersey. I am going to give you ${cases.length} real emails from the
-agency's mailbox, anonymised. Read this whole brief before you answer anything.
-
-## What the agency does, in one paragraph
+const CONTEXT = `## Part 2 — What you are reading, and what makes it hard
 
 A title agency sits in the middle of a real estate closing. Lenders, mortgage
-brokers, attorneys, realtors and underwriters all email it about the same
-handful of properties, often on the same day, often in long forwarded chains
-where the useful sentence is one line at the top and the rest is quoted
-history. The agency's job is to know, for every property: when is it closing,
-where, who is on it, what has been asked of us, and what are we still waiting
-for. Getting that wrong has consequences — a closer sent to the wrong address,
-a closing on the board that does not exist, a lender's request nobody answers.
+brokers, attorneys, realtors, underwriters and the agency's own staff all email
+about the same handful of properties, often on the same day. The agency has to
+know, for every property: **when is it closing, where, who is on it, what has
+been asked of us, and what are we still waiting for.**
 
-## Your job
+Getting it wrong has physical consequences — a closer driven to the wrong
+address, a closing sitting on the board that does not exist, a lender's request
+nobody answers until it holds up funding.
 
-For each email, in the order given, produce exactly this:
+These ${N} emails are real, anonymised, from that mailbox. Every rule below comes
+from an actual failure on this corpus, not from theory.
+
+### The nine fact types that matter
+
+\`PROPERTY_ADDRESS\` · \`BUYER_NAME\` · \`SELLER_NAME\` · \`CLOSING_DATE\` ·
+\`CLOSING_TIME\` · \`CLOSING_LOCATION\` · \`FILE_NUMBER\` · \`LOAN_NUMBER\` ·
+\`MILESTONE\`
+
+Lender names, attorney names and deadlines are recognisable but are **not**
+stored downstream — extracting them is noise, not signal.
+
+### The eight rules, each earned the hard way
+
+**1. Never invent a value.** If an email says "Thursday at 10", the closing
+time is "Thursday at 10" — not "10:00 AM". Adding the AM is fabricating
+evidence. A model did exactly this on one run in three.
+
+**2. Most clock times here are NOT the closing time.** They are \`Sent:\`
+timestamps on quoted replies, a sender's advertised office hours ("I can be
+reached 9 a.m. to 5 p.m."), a lender's funding cutoff ("received after 3:30 PM
+CST"), or a corrections deadline. In this corpus that single mistake accounts
+for more failures than anything else. Assume a time is not the closing time
+unless the email says so.
+
+**3. Most addresses here are NOT the property.** Signature blocks, a lender's
+document mailing address, a shipping address, the home address of a judgment
+debtor with no connection to the deal.
+
+**4. Many dates are deadlines, not settlements.** Lien filing dates, tax sale
+dates, a corrections due date, a searcher's estimated completion date, the
+date a wire moved.
+
+**5. Do not propose a closing unless one is genuinely confirmed.** Several of
+these emails discuss a closing that explicitly is not scheduled — *"this loan
+is not yet in closing"*, *"signing date and time — we currently do not have
+this set"*. A phantom closing on a settlement board is among the worst
+outcomes possible.
+
+**6. One checklist is one task.** When one party sends a list of requirements
+for a single purpose — a lender's eight-bullet closing checklist — that is ONE
+task naming the list, not eight. Genuinely separate asks ("send the CPL" *and*
+"confirm the payoff was ordered") still split into two. This is a standing
+office rule, not a preference.
+
+**7. Our own outgoing mail raises no tasks.** When direction is OUTGOING the
+agency sent it: look for evidence something was completed, not for requests to
+answer. Task count is zero.
+
+**8. Filing is the highest-stakes decision.** Attach to an existing deal only
+when a strong identifier agrees — file number, loan number, or property
+address. A shared surname or shared town is never enough; the same property
+legitimately carries different transactions over the years. Two emails about
+one deal landing on two files is bad; one email landing on someone else's
+property is worse.
+
+### About forwarded mail
+
+Many of these are forwards, and a forward lies about who sent it. The envelope
+sender is whoever pressed Forward. The real sender, recipients and date are in
+the header block inside the body, and **the quoted portion IS the message** —
+the one line on top is just a covering note. Direction is stated for you on
+each email below; use it rather than inferring it from the envelope.
+
+## Part 3 — The output to produce
+
+For each email, in order, exactly this and nothing else:
 
 \`\`\`
 EMAIL <n> — <id>
 
 FACTS
-  <TYPE>: <value>          one line per fact, or "none"
+  <TYPE>: <value>              one per line, or "none"
 
 TASKS
-  <a short title for each thing the agency must now do>, or "none"
+  <short title of each thing the agency must now do>, or "none"
 
 FILING
-  NEW FILE  |  EXISTING FILE (<which earlier email's deal>)
+  NEW FILE   |   EXISTING FILE (<which earlier email's deal>)
 
 CLOSING
-  PROPOSE  <date/time/place>   |   DO NOT PROPOSE
+  PROPOSE <date / time / place>   |   DO NOT PROPOSE
 
-NOTES
-  <anything you were unsure about and why>
+UNSURE
+  <anything you could not decide, and why> — or "nothing"
 \`\`\`
 
-### The only fact types that count
-
-\`PROPERTY_ADDRESS\`, \`BUYER_NAME\`, \`SELLER_NAME\`, \`CLOSING_DATE\`,
-\`CLOSING_TIME\`, \`CLOSING_LOCATION\`, \`FILE_NUMBER\`, \`LOAN_NUMBER\`,
-\`MILESTONE\`.
-
-Do not invent other types. Do not report a lender's name, an attorney's name or
-a deadline as a fact — the system that consumes your output does not store
-them, so they are noise.
-
-## The rules you are being judged against
-
-**1. Never invent a value.** Record only what the email actually says. If an
-email says "Thursday at 10", the closing time is "Thursday at 10" — not
-"10:00 AM". Adding the AM is inventing evidence.
-
-**2. Most clock times in these emails are not closing times.** They will be
-\`Sent:\` timestamps on quoted replies, a sender's advertised office hours
-("I can be reached 9 a.m. to 5 p.m."), a lender's funding cutoff ("received
-after 3:30 PM CST"), or a corrections deadline. Assume a time is NOT the
-closing time unless the email says it is.
-
-**3. Most addresses in these emails are not the property.** They will be
-signature blocks, a lender's mailing address for documents, a shipping address,
-or the address of a judgment debtor who has nothing to do with the deal.
-
-**4. A date is often a deadline, not a settlement.** Lien filing dates, tax
-sale dates, corrections deadlines, a searcher's estimated completion date.
-
-**5. Do not propose a closing unless one is genuinely confirmed.** Several of
-these emails discuss a closing that is explicitly not scheduled — "this loan is
-not yet in closing", "signing date and time — we currently do not have this
-set". A closing on the board that does not exist is one of the worst errors
-possible here.
-
-**6. One checklist is one task.** When one party sends a list of requirements,
-conditions or documents for a single purpose — a lender's eight-bullet closing
-checklist — that is ONE task naming the list, not eight tasks. Genuinely
-separate asks ("send the CPL" *and* "confirm the payoff was ordered") still
-split into two.
-
-**7. Our own outgoing mail raises no tasks.** If \`Direction: OUTGOING\`, the
-agency sent it. Look for evidence that something was completed, not for
-requests to answer. Task count is zero.
-
-**8. Filing is the highest-stakes decision.** Attach an email to an existing
-deal only when a strong identifier agrees — a file number, a loan number, or
-the property address. A shared surname or a shared town is not enough; the
-same property legitimately has different transactions over the years. When you
-are unsure, say so in NOTES rather than guessing.
-
-## How to behave
-
-- Work through them in order. Later emails may belong to files earlier ones opened.
-- Where you are uncertain, **say so in NOTES**. An honest "I could not tell
-  whether this time was the closing or the sender's office hours" is worth more
-  than a confident wrong answer, and is scored as such.
-- Do not ask me questions before starting. Produce the output for all ${cases.length} emails.
-- Do not summarise or editorialise. The blocks above, nothing else.
-
-When you are ready, I will paste the emails.
+The UNSURE line is scored. An honest *"I could not tell whether 3:30 PM was the
+closing or the funding cutoff"* is worth more than a confident wrong answer,
+and an agent whose uncertainty lands on its actual errors is far more useful
+than one that is confidently wrong at the same accuracy.
 `;
 
-fs.writeFileSync(path.join(OUT_DIR, "1-prompt.md"), prompt);
+function emailsSection(): string {
+  const out: string[] = [
+    `## Part 4 — The ${N} emails`,
+    "",
+    "Process them in the order given. Emails sharing a **Deal group** belong to",
+    "the same transaction: a later one is testing whether you file it onto the",
+    "file an earlier one opened.",
+    "",
+    "---",
+    "",
+  ];
 
-// --- 4-grader-prompt.md : what to paste into the SECOND chat -----------------
+  cases.forEach((c, i) => {
+    const dir = c.direction ?? "INCOMING";
+    out.push(`### Email ${i + 1} of ${N} — \`${c.id}\``);
+    out.push("");
+    out.push(
+      `**${dir}** ${dir === "INCOMING" ? "(sent TO the agency)" : "(sent BY the agency)"} · ` +
+        `**From:** ${c.from}${c.group ? ` · **Deal group:** \`${c.group}\`` : ""}`
+    );
+    out.push(`**Subject:** ${c.subject}`);
+    out.push("");
+    out.push("```text");
+    out.push(c.body);
+    out.push("```");
+    out.push("");
+    out.push("---");
+    out.push("");
+  });
 
-const grader = `# Paste this into a SECOND, FRESH chat
+  return out.join("\n");
+}
 
-Then paste the agent's answers, then paste 3-answer-key.md.
+function criteriaSection(heading: string, preamble: string[]): string {
+  const out: string[] = [heading, "", ...preamble, "", "---", ""];
 
-It must be a fresh chat. If you grade in the same conversation the agent
-answered in, it is marking its own homework and will find itself agreeable.
+  cases.forEach((c, i) => {
+    const e = c.expect ?? {};
+    out.push(`### Email ${i + 1} — \`${c.id}\``);
+    out.push("");
+    if (c.note) out.push(`_Why this one is here: ${c.note}_`, "");
 
----
+    if (e.facts?.length) {
+      out.push("**Must extract**");
+      for (const f of e.facts) out.push(`- \`${f.type}\` containing "${f.contains}"${f.why ? ` — ${f.why}` : ""}`);
+      out.push("");
+    }
+    if (e.mustNotSay?.length) {
+      out.push("**Must NOT say — these are the traps**");
+      for (const g of e.mustNotSay) out.push(`- \`${g.type}\` must not contain "${g.text}" — ${g.why ?? ""}`);
+      out.push("");
+    }
+    if (e.tasks?.length) {
+      out.push("**Must raise a task about**");
+      for (const t of e.tasks) out.push(`- "${t.contains}"${t.why ? ` — ${t.why}` : ""}`);
+      out.push("");
+    }
+    if (typeof e.taskCount === "number") {
+      out.push(
+        `**Exact task count:** ${e.taskCount}` +
+          (e.taskCount === 0 ? " — this email asks for nothing, or the agency sent it" : "")
+      );
+      out.push("");
+    }
+    if (e.filing) {
+      out.push(`**Filing:** ${e.filing === "new" ? "start a NEW file" : "attach to the EXISTING file"}`);
+      out.push("");
+    }
+    if (e.proposesClosing !== undefined) {
+      out.push(
+        `**Propose a closing?** ${e.proposesClosing ? "YES" : "NO — proposing one here is a serious error"}`
+      );
+      out.push("");
+    }
+    if (e.duplicateFlagged !== undefined) {
+      out.push(`**Flag as a possible duplicate?** ${e.duplicateFlagged ? "YES" : "no"}`);
+      out.push("");
+    }
+    if (e.addressOnlyLink !== undefined) {
+      out.push(
+        `**Link on the address alone, with a "file number missing" warning?** ${e.addressOnlyLink ? "YES" : "no"}`
+      );
+      out.push("");
+    }
+    out.push("---", "");
+  });
 
-You are grading an AI agent that was asked to read ${cases.length} emails from a title
-insurance agency and extract structured facts, tasks and filing decisions.
+  return out.join("\n");
+}
 
-I will give you two things: the agent's answers, and the answer key a human
-wrote. Score the agent against the key.
+const REPORT = `## Part 6 — What to report back
 
-## How to score
-
-An email is **fully correct** only if every one of these holds:
-
-- every fact the key requires was extracted (partial-text match is fine —
-  "214 Delmar" satisfies "214 Delmar Ave., Jersey City NJ")
-- nothing in the key's "must NOT say" list appears
-- every required task is present
-- the exact task count matches, where the key states one
-- the filing decision matches
-- the propose-a-closing decision matches
-
-No partial credit per email. Partial credit hides real problems — an email
-where the address is right and the closing date is invented is not "80% good",
-it is an email that would put a wrong appointment on a settlement board.
-
-## What to give me
-
-**1. A table**, one row per email: id, PASS or FAIL, and if failed, the
-shortest possible description of what went wrong.
-
-**2. The score**: "N of ${cases.length} fully correct."
-
-**3. Failures grouped by cause, not by email.** This is the most useful part.
-If four emails failed because a \`Sent:\` timestamp was recorded as the closing
-time, that is one problem with four symptoms, and saying so is far more
-actionable than four separate bug reports. Rank the groups by how many emails
-each affects.
-
-**4. The dangerous ones, called out separately.** Two failure types matter more
-than the rest and should never be buried in a list:
-   - **Invented facts** — the agent stated something the email does not say.
-   - **Wrong filing** — an email attached to the wrong property, or a deal
-     split across two files.
-   Missing something is recoverable. Inventing something, or filing it under
-   someone else's property, is not.
-
-**5. Where the agent said it was unsure** — did its uncertainty land on the
-things it actually got wrong? An agent that flags its own errors is far more
-useful than one that is confidently wrong at the same accuracy.
-
-Do not be generous. This is a system that will be trusted with real closings.
+1. **One line per email:** \`<id> — PASS\` or \`<id> — FAIL: <shortest possible reason>\`
+2. **The score:** "N of ${N} fully correct." An email counts as correct only if
+   every criterion for it holds. No partial credit — an email where the address
+   is right and the closing time is invented is not 80% good, it is an email
+   that would put a wrong appointment on a settlement board.
+3. **Failures grouped by cause, not by email.** If four emails failed because a
+   \`Sent:\` timestamp became the closing time, that is one problem with four
+   symptoms. Rank the groups by how many emails each affects. This is the most
+   useful thing you can give me.
+4. **Called out separately — invented facts and wrong filing.** Missing
+   something is recoverable. Inventing something, or attaching an email to the
+   wrong property, is not. Never bury these in a list.
+5. **Then, and only then, what you would change** in the agent's prompt or
+   logic to fix the largest group — one change, the highest-leverage one, not a
+   list of ten.
 `;
 
-fs.writeFileSync(path.join(OUT_DIR, "4-grader-prompt.md"), grader);
+// --- write -------------------------------------------------------------------
+
+const written: string[] = [];
+
+if (!blind) {
+  const pack = [
+    "# Test pack — real title-agency email",
+    "",
+    `${N} real (anonymised) emails from a title insurance agency's mailbox, with`,
+    "the acceptance criteria a human wrote for each one.",
+    "",
+    "## Part 1 — What I want you to do",
+    "",
+    "We have been building an email intake agent in this conversation. This is",
+    "the first real material to test it against.",
+    "",
+    "In order:",
+    "",
+    "1. Read Part 2 so you know the domain and the failure modes.",
+    "2. Run your agent's logic over the emails in Part 4, producing the output",
+    "   format in Part 3 for each one.",
+    "3. **Write your answers for all " + N + " before you read Part 5.** Part 5 is the",
+    "   acceptance criteria. Reading it first turns this into a copying exercise",
+    "   and tells us nothing about whether the agent works.",
+    "4. Then read Part 5, score yourself, and report as Part 6 asks.",
+    "",
+    "If your answer would be too long, do them in batches of 8 and tell me you",
+    "are pausing — do not skip any or summarise.",
+    "",
+    "---",
+    "",
+    CONTEXT,
+    "",
+    "---",
+    "",
+    emailsSection(),
+    criteriaSection(
+      "## Part 5 — Acceptance criteria",
+      [
+        "**Do not read this until your answers for all " + N + " emails are written.**",
+        "",
+        "Every line here is a judgement a human made about a real email. Where a",
+        "case says a value must NOT appear, it is guarding against a mistake this",
+        "system actually made at least once.",
+      ]
+    ),
+    REPORT,
+  ].join("\n");
+
+  fs.writeFileSync(path.join(OUT_DIR, "agent-test-pack.md"), pack);
+  written.push("agent-test-pack.md");
+} else {
+  fs.writeFileSync(
+    path.join(OUT_DIR, "1-brief-and-emails.md"),
+    ["# Test pack (blind)", "", "## Part 1 — What to do", "",
+      `Read Part 2, then produce the Part 3 output for each of the ${N} emails in`,
+      "Part 3. You will be scored against criteria you are not being shown.",
+      "", "---", "", CONTEXT, "", "---", "", emailsSection()].join("\n")
+  );
+  fs.writeFileSync(
+    path.join(OUT_DIR, "2-criteria-and-scoring.md"),
+    [criteriaSection("# Acceptance criteria — held back", [
+      "**Do not paste this into the agent being tested.** Use a separate, fresh",
+      "chat: paste this, then the agent's answers, then ask it to score using the",
+      "rules below.",
+    ]), REPORT].join("\n")
+  );
+  written.push("1-brief-and-emails.md", "2-criteria-and-scoring.md");
+}
 
 // --- report ------------------------------------------------------------------
 
-const withPrivate = cases.filter((c) => !publicOnly).length;
+const bytes = written.reduce((n, f) => n + fs.statSync(path.join(OUT_DIR, f)).size, 0);
+
 console.log("");
-console.log(`  Exported ${cases.length} case(s) to evals/export/`);
+console.log(`  ${N} email(s) exported to evals/export/`);
 console.log("");
-console.log("    1-prompt.md       paste FIRST into the agent being tested");
-console.log("    2-emails.md       paste SECOND — no answers in this file");
-console.log("    3-answer-key.md   DO NOT paste into that agent; use a second chat");
-console.log("");
-if (!publicOnly && withPrivate > 0) {
-  console.log("  NOTE: this includes your private cases — real (anonymised) client");
-  console.log("  email. Run with --public-only to export just the four made-up ones.");
-  console.log("");
+for (const f of written) {
+  const kb = (fs.statSync(path.join(OUT_DIR, f)).size / 1024).toFixed(0);
+  console.log(`    ${f}  (${kb} KB)`);
 }
-console.log("  evals/export/ is gitignored, so none of this reaches GitHub.");
+console.log("");
+if (!blind) {
+  console.log("  Paste agent-test-pack.md into the chat where the agent is being built.");
+  console.log("  If the box rejects it for size, attach it as a file instead.");
+} else {
+  console.log("  Blind mode: give the agent file 1 only. Score in a separate chat with file 2.");
+}
+console.log("");
+console.log(`  Roughly ${Math.round(bytes / 4 / 1000)}k tokens. Use --max 8 for a smaller first pass.`);
+if (!publicOnly) {
+  console.log("  Includes your private cases — real anonymised client email.");
+  console.log("  Use --public-only for just the four made-up ones.");
+}
 console.log("");
