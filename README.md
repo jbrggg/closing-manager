@@ -1,5 +1,12 @@
 # Keystone Closing Operations — AI Closing & Task Manager (Prototype)
 
+[![Verify](https://github.com/jbrggg/closing-manager/actions/workflows/verify.yml/badge.svg)](https://github.com/jbrggg/closing-manager/actions/workflows/verify.yml)
+
+Green means the type check, the full test suite and the linter all passed on
+**Windows and Linux**, on Node 22 and 24. Click it to see the last run. Windows
+is the one that matters — this project has already been burned once by a test
+suite that was green on Linux and broken on Windows.
+
 A working full-stack prototype of an AI-assisted closing manager and task manager
 for a small PA/NJ title agency, per the project brief. This app — not any
 calendar or title-production system — is the system of record for closings,
