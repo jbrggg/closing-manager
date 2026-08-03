@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         </Panel>
 
         <Panel title="Office defaults (deadline inference)">
-          <dl className="divide-y divide-line px-4 py-2 text-[13px]">
+          <dl className="divide-y divide-line px-4 py-2 text-[1.0625rem]">
             <Row label="Primary timezone" value={officeDefaults.timezone} />
             <Row label="Status-update due window" value={`${officeDefaults.statusUpdateDueHours}h`} />
             <Row label="Urgent lender request due window" value={`${officeDefaults.urgentLenderDueHours}h`} />
@@ -38,11 +38,11 @@ export default async function SettingsPage() {
         <Panel title="Offices">
           <div className="divide-y divide-line">
             {offices.map((o) => (
-              <div key={o.id} className="px-4 py-2.5 text-[13px]">
+              <div key={o.id} className="px-4 py-2.5 text-[1.0625rem]">
                 <div className="font-medium text-ink">
-                  {o.name} {Boolean(o.isDefault) && <span className="text-[11px] text-ink-muted">(default)</span>}
+                  {o.name} {Boolean(o.isDefault) && <span className="text-[0.9375rem] text-ink-muted">(default)</span>}
                 </div>
-                <div className="text-[11px] text-ink-muted">{o.address}</div>
+                <div className="text-[0.9375rem] text-ink-muted">{o.address}</div>
               </div>
             ))}
           </div>
@@ -51,12 +51,12 @@ export default async function SettingsPage() {
         <Panel title="Users">
           <div className="divide-y divide-line">
             {users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between px-4 py-2.5 text-[13px]">
+              <div key={u.id} className="flex items-center justify-between px-4 py-2.5 text-[1.0625rem]">
                 <div>
                   <div className="font-medium text-ink">{u.name}</div>
-                  <div className="text-[11px] text-ink-muted">{u.email}</div>
+                  <div className="text-[0.9375rem] text-ink-muted">{u.email}</div>
                 </div>
-                <span className="text-[11px] uppercase tracking-wide text-ink-muted">{u.role}</span>
+                <span className="text-[0.9375rem] uppercase tracking-wide text-ink-muted">{u.role}</span>
               </div>
             ))}
           </div>
@@ -65,10 +65,10 @@ export default async function SettingsPage() {
         <Panel title="Email integrations" className="lg:col-span-2">
           <div className="divide-y divide-line">
             {emailAccounts.map((a) => (
-              <div key={a.id} className="flex items-center justify-between px-4 py-2.5 text-[13px]">
+              <div key={a.id} className="flex items-center justify-between px-4 py-2.5 text-[1.0625rem]">
                 <div>
                   <div className="font-medium text-ink">{a.emailAddress}</div>
-                  <div className="text-[11px] text-ink-muted">
+                  <div className="text-[0.9375rem] text-ink-muted">
                     Provider: {a.providerType} — mock adapter for this prototype. Gmail and Microsoft 365 adapters
                     plug into the same <code className="font-mono-data">EmailProvider</code> interface.
                   </div>

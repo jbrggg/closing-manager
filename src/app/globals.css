@@ -1,57 +1,110 @@
 @import "tailwindcss";
 
-:root {
-  --paper: #f2f3f0;
-  --surface: #ffffff;
-  --ink: #1b2430;
-  --ink-muted: #5b6570;
-  --border: #dde1e0;
-  --line: #e7e9e4;
+/* ---------------------------------------------------------------------------
+   DESIGN TOKENS
 
-  --accent-confirmed: #0f5132;
-  --accent-confirmed-bg: #e6f0e9;
-  --accent-tentative: #9a5b00;
-  --accent-tentative-bg: #fbeed7;
-  --accent-review: #a3410f;
-  --accent-review-bg: #fbe6dc;
-  --accent-danger: #a3241f;
-  --accent-danger-bg: #f8e2e0;
-  --accent-info: #1e4d6b;
-  --accent-info-bg: #e2eef4;
-  --accent-neutral: #4b5259;
-  --accent-neutral-bg: #e9eae6;
+   Rebuilt 2026-08-03 for readability.
+
+   The person using this all day may be in their seventies, reading at arm's
+   length, in a hurry, on a bright screen. The old scale — 13px body, 11px
+   labels, 12px uppercase panel headings — was designed for someone who leans
+   in. Nobody leans in on a Tuesday morning with four closings to confirm.
+
+   Three rules this palette follows:
+
+   1. COLOUR CARRIES MEANING, NOT DECORATION. A status should be recognisable
+      by its colour before the word is read. That is the whole point of an
+      operations screen: you scan for the orange thing.
+   2. EVERY PAIRING CLEARS WCAG AA, most clear AAA. Nothing important relies on
+      colour alone, so it still works for the ~8% of men with colour-vision
+      deficiency — every coloured chip also carries a word.
+   3. NOTHING IMPORTANT IS SMALL. 17px base; 15px is the floor for anything a
+      person has to read. Metadata that used to be 11px is now 15px or gone.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* --- surfaces ---------------------------------------------------------- */
+  --paper: #eef1ec;          /* page background — warm, so white cards lift off it */
+  --surface: #ffffff;        /* cards */
+  --surface-sunken: #e7ebe5; /* wells, table headers */
+
+  /* --- text -------------------------------------------------------------- */
+  --ink: #14201b;            /* 15.9:1 on white */
+  --ink-muted: #47534d;      /* 8.7:1 on white. Was #5b6570 at 11px — unreadable */
+  --border: #cfd6cf;
+  --line: #e2e7e1;
+
+  /* --- brand ------------------------------------------------------------- */
+  --brand: #0f4c3a;          /* deep green: top bar, primary buttons */
+  --brand-hover: #0a3729;
+  --brand-soft: #dcebe4;
+  --on-brand: #ffffff;       /* 10.6:1 on --brand */
+
+  /* --- status -----------------------------------------------------------
+     Each has a strong tone for text and borders, and a soft one for fills.
+     The soft fills are what make a row recognisable without reading it.     */
+  --confirmed: #0a6135;      /* green  — done, confirmed, approved */
+  --confirmed-bg: #d2eddd;
+  --tentative: #8a4700;      /* amber  — not settled yet, needs a date */
+  --tentative-bg: #ffe7c4;
+  --review: #9a3310;         /* orange — a person has to decide */
+  --review-bg: #ffdecd;
+  --danger: #8f1f1a;         /* red    — cancelled, failed, overdue */
+  --danger-bg: #ffd8d4;
+  --info: #0d4a68;           /* blue   — in flight, informational */
+  --info-bg: #d2e8f6;
+  --neutral: #3c4742;        /* grey   — nothing to say about it */
+  --neutral-bg: #e2e6e0;
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-border: var(--border);
   --color-line: var(--line);
 
-  --color-confirmed: var(--accent-confirmed);
-  --color-confirmed-bg: var(--accent-confirmed-bg);
-  --color-tentative: var(--accent-tentative);
-  --color-tentative-bg: var(--accent-tentative-bg);
-  --color-review: var(--accent-review);
-  --color-review-bg: var(--accent-review-bg);
-  --color-danger: var(--accent-danger);
-  --color-danger-bg: var(--accent-danger-bg);
-  --color-info: var(--accent-info);
-  --color-info-bg: var(--accent-info-bg);
-  --color-neutral: var(--accent-neutral);
-  --color-neutral-bg: var(--accent-neutral-bg);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+
+  --color-confirmed: var(--confirmed);
+  --color-confirmed-bg: var(--confirmed-bg);
+  --color-tentative: var(--tentative);
+  --color-tentative-bg: var(--tentative-bg);
+  --color-review: var(--review);
+  --color-review-bg: var(--review-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-neutral: var(--neutral);
+  --color-neutral-bg: var(--neutral-bg);
 
   --font-sans: "Segoe UI", -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
   --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", ui-serif, serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, ui-monospace, monospace;
 }
 
+html {
+  /* Everything downstream is relative to this, so this one number controls
+     the whole application's readability. 17px, not the browser default 16.
+     If someone still finds it small, raise it here and the entire app grows
+     in proportion — nothing else needs to change. */
+  font-size: 17px;
+}
+
 body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  /* Long property addresses and email subjects must wrap, not overflow. */
+  overflow-wrap: break-word;
 }
 
 .font-serif-head {
@@ -62,19 +115,48 @@ body {
   font-family: var(--font-mono), ui-monospace, monospace;
 }
 
+/* Keyboard focus has to be obvious. The browser default 1px outline is
+   effectively invisible to anyone who needed this scale in the first place. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--info);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Anything clickable is at least ~44px tall — the size an unsteady hand can
+   hit reliably, and the WCAG 2.2 target-size minimum. */
+:where(button, a.btn, [role="button"]) {
+  min-height: 2.6rem;
+}
+
 ::selection {
-  background: var(--accent-info-bg);
+  background: var(--info-bg);
 }
 
 table {
   border-collapse: collapse;
+  font-size: 1rem;
 }
 
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
 .scrollbar-thin::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
+}
+
+/* Respect the system setting. Someone who asked for less motion usually asked
+   for a reason. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

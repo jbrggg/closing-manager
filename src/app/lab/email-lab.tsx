@@ -105,7 +105,7 @@ export function EmailLab() {
     <div className="grid grid-cols-1 gap-4 px-6 py-6 lg:grid-cols-2">
       {/* ---------------- Input ---------------- */}
       <div className="space-y-4">
-        <div className="rounded-sm border border-tentative bg-tentative-bg px-4 py-3 text-[12px]">
+        <div className="rounded-sm border border-tentative bg-tentative-bg px-4 py-3 text-[1rem]">
           <div className="font-semibold text-tentative">Remove sensitive details first</div>
           <p className="mt-1 text-ink">
             Anything you paste here is stored in this app&apos;s local database. Before pasting, take out
@@ -115,48 +115,48 @@ export function EmailLab() {
         </div>
 
         <div className="rounded-sm border border-border bg-surface p-4">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+          <h2 className="text-[1rem] font-semibold uppercase tracking-wide text-ink-muted">
             Paste an email
           </h2>
 
           <div className="mt-3 space-y-3">
             <div>
-              <label className="block text-[12px] font-medium text-ink">Who sent it</label>
+              <label className="block text-[1rem] font-medium text-ink">Who sent it</label>
               <input
                 value={fromAddress}
                 onChange={(e) => setFromAddress(e.target.value)}
                 placeholder="agent@somerealty.com"
-                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[13px] outline-none focus:border-ink"
+                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[1.0625rem] outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-ink">Subject line</label>
+              <label className="block text-[1rem] font-medium text-ink">Subject line</label>
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="RE: 123 Main St closing"
-                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[13px] outline-none focus:border-ink"
+                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[1.0625rem] outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-ink">Email body</label>
+              <label className="block text-[1rem] font-medium text-ink">Email body</label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={10}
                 placeholder="Paste the text of the email here…"
-                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[13px] outline-none focus:border-ink"
+                className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[1.0625rem] outline-none focus:border-ink"
               />
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-ink">Direction</label>
+              <label className="block text-[1rem] font-medium text-ink">Direction</label>
               <div className="mt-1 flex gap-2">
                 <button
                   onClick={() => setDirection("INCOMING")}
-                  className={`flex-1 rounded-sm border px-3 py-2 text-[12px] font-medium ${
+                  className={`flex-1 rounded-sm border px-3 py-2 text-[1rem] font-medium ${
                     direction === "INCOMING"
                       ? "border-ink bg-ink text-paper"
                       : "border-border bg-surface text-ink-muted"
@@ -166,7 +166,7 @@ export function EmailLab() {
                 </button>
                 <button
                   onClick={() => setDirection("OUTGOING")}
-                  className={`flex-1 rounded-sm border px-3 py-2 text-[12px] font-medium ${
+                  className={`flex-1 rounded-sm border px-3 py-2 text-[1rem] font-medium ${
                     direction === "OUTGOING"
                       ? "border-ink bg-ink text-paper"
                       : "border-border bg-surface text-ink-muted"
@@ -175,7 +175,7 @@ export function EmailLab() {
                   We sent it
                 </button>
               </div>
-              <p className="mt-1 text-[11px] text-ink-muted">
+              <p className="mt-1 text-[0.9375rem] text-ink-muted">
                 This matters: the AI only looks for task <em>requests</em> in incoming mail, and only
                 looks for task <em>completions</em> in mail you sent.
               </p>
@@ -185,13 +185,13 @@ export function EmailLab() {
               <button
                 onClick={analyze}
                 disabled={running || !subject.trim() || !body.trim()}
-                className="flex-1 rounded-sm bg-ink px-3 py-2 text-[13px] font-semibold text-paper disabled:opacity-50"
+                className="flex-1 rounded-sm bg-ink px-3 py-2 text-[1.0625rem] font-semibold text-paper disabled:opacity-50"
               >
                 {running ? "Reading the email…" : "Analyze this email"}
               </button>
               <button
                 onClick={reset}
-                className="rounded-sm border border-border px-3 py-2 text-[13px] font-medium text-ink-muted hover:text-ink"
+                className="rounded-sm border border-border px-3 py-2 text-[1.0625rem] font-medium text-ink-muted hover:text-ink"
               >
                 Clear
               </button>
@@ -203,13 +203,13 @@ export function EmailLab() {
       {/* ---------------- Results ---------------- */}
       <div className="space-y-4">
         {error && (
-          <div className="rounded-sm border border-danger bg-danger-bg px-4 py-3 text-[13px] text-danger">
+          <div className="rounded-sm border border-danger bg-danger-bg px-4 py-3 text-[1.0625rem] text-danger">
             {error}
           </div>
         )}
 
         {!result && !error && (
-          <div className="rounded-sm border border-border bg-surface px-4 py-10 text-center text-[13px] text-ink-muted">
+          <div className="rounded-sm border border-border bg-surface px-4 py-10 text-center text-[1.0625rem] text-ink-muted">
             Results will appear here after you analyze an email.
           </div>
         )}
@@ -217,7 +217,7 @@ export function EmailLab() {
         {result && (
           <>
             <div
-              className={`rounded-sm border px-4 py-2.5 text-[12px] ${
+              className={`rounded-sm border px-4 py-2.5 text-[1rem] ${
                 result.engine.isRealAI
                   ? "border-confirmed bg-confirmed-bg"
                   : "border-tentative bg-tentative-bg"
@@ -237,18 +237,18 @@ export function EmailLab() {
             </div>
 
             <div className="rounded-sm border border-border bg-surface p-4">
-              <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+              <h2 className="text-[1rem] font-semibold uppercase tracking-wide text-ink-muted">
                 What the AI understood
               </h2>
 
               {result.facts.length === 0 ? (
-                <p className="mt-2 text-[13px] text-ink-muted">
+                <p className="mt-2 text-[1.0625rem] text-ink-muted">
                   It found no closing-related facts in this email. That&apos;s the right answer for
                   general chatter — but if this email did contain a property, date, or name, that&apos;s
                   a miss worth noting.
                 </p>
               ) : (
-                <table className="mt-2 w-full text-[13px]">
+                <table className="mt-2 w-full text-[1.0625rem]">
                   <tbody className="divide-y divide-line">
                     {result.facts.map((f, i) => (
                       <tr key={i}>
@@ -267,7 +267,7 @@ export function EmailLab() {
                 </table>
               )}
 
-              <p className="mt-3 text-[11px] text-ink-muted">
+              <p className="mt-3 text-[0.9375rem] text-ink-muted">
                 {result.searchedMailbox
                   ? "This email was missing some closing details, so the AI also searched other messages to fill the gaps."
                   : "The AI read this email and its thread only — it had enough here without searching further."}
@@ -275,12 +275,12 @@ export function EmailLab() {
             </div>
 
             <div className="rounded-sm border border-border bg-surface p-4">
-              <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+              <h2 className="text-[1rem] font-semibold uppercase tracking-wide text-ink-muted">
                 What it wants to do about it
               </h2>
 
               {result.proposals.length === 0 ? (
-                <p className="mt-2 text-[13px] text-ink-muted">
+                <p className="mt-2 text-[1.0625rem] text-ink-muted">
                   No actions proposed. Correct if this email was purely informational; a miss if it
                   actually asked you for something.
                 </p>
@@ -289,17 +289,17 @@ export function EmailLab() {
                   {result.proposals.map((p) => (
                     <div key={p.id} className="rounded-sm border border-line bg-paper p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[13px] font-semibold text-ink">
+                        <span className="text-[1.0625rem] font-semibold text-ink">
                           {PROPOSAL_LABELS[p.proposalType] ?? titleCaseEnum(p.proposalType)}
                         </span>
                         <ConfidencePill value={p.confidence} />
                       </div>
 
                       {typeof p.payload.title === "string" && (
-                        <div className="mt-1 text-[13px] text-ink">&ldquo;{p.payload.title}&rdquo;</div>
+                        <div className="mt-1 text-[1.0625rem] text-ink">&ldquo;{p.payload.title}&rdquo;</div>
                       )}
 
-                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.9375rem] text-ink-muted">
                         {typeof p.payload.category === "string" && <span>Type: {p.payload.category}</span>}
                         {typeof p.payload.priority === "string" && (
                           <span>Priority: {p.payload.priority}</span>
@@ -316,7 +316,7 @@ export function EmailLab() {
                         )}
                       </div>
 
-                      {p.reason && <p className="mt-1.5 text-[11px] text-ink-muted">Why: {p.reason}</p>}
+                      {p.reason && <p className="mt-1.5 text-[0.9375rem] text-ink-muted">Why: {p.reason}</p>}
                     </div>
                   ))}
                 </div>
@@ -325,15 +325,15 @@ export function EmailLab() {
 
             {result.transaction && (
               <div className="rounded-sm border border-border bg-surface p-4">
-                <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+                <h2 className="text-[1rem] font-semibold uppercase tracking-wide text-ink-muted">
                   Which file it filed this under
                 </h2>
-                <div className="mt-2 flex items-center justify-between text-[13px]">
+                <div className="mt-2 flex items-center justify-between text-[1.0625rem]">
                   <div>
                     <div className="font-medium text-ink">
                       {result.transaction.propertyAddress ?? "Property not yet identified"}
                     </div>
-                    <div className="text-[11px] text-ink-muted">
+                    <div className="text-[0.9375rem] text-ink-muted">
                       {result.transaction.linkedToExisting
                         ? "Attached to an existing transaction it recognized"
                         : "Started a new transaction — it found no confident match"}
@@ -343,15 +343,15 @@ export function EmailLab() {
                 </div>
                 <Link
                   href={`/transactions/${result.transaction.id}`}
-                  className="mt-2 inline-block text-[12px] text-info underline"
+                  className="mt-2 inline-block text-[1rem] text-info underline"
                 >
                   Open the full record →
                 </Link>
               </div>
             )}
 
-            <div className="rounded-sm border border-border bg-surface p-4 text-[13px]">
-              <h2 className="text-[12px] font-semibold uppercase tracking-wide text-ink-muted">
+            <div className="rounded-sm border border-border bg-surface p-4 text-[1.0625rem]">
+              <h2 className="text-[1rem] font-semibold uppercase tracking-wide text-ink-muted">
                 Score it
               </h2>
               <p className="mt-2 text-ink-muted">
@@ -362,11 +362,11 @@ export function EmailLab() {
                 <li>Did it correctly spot whether someone was asking for something?</li>
                 <li>Did it file it under the right property?</li>
               </ol>
-              <p className="mt-2 text-[11px] text-ink-muted">
+              <p className="mt-2 text-[0.9375rem] text-ink-muted">
                 Run 20–30 emails and count how many it got fully right. Below roughly 15 out of 20,
                 switch to the real AI provider before building anything further.
               </p>
-              <Link href="/review" className="mt-2 inline-block text-[12px] text-info underline">
+              <Link href="/review" className="mt-2 inline-block text-[1rem] text-info underline">
                 These proposals are also waiting in the Review Queue →
               </Link>
             </div>

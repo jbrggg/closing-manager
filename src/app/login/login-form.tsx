@@ -36,7 +36,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
   return (
     <div className="mt-4 space-y-3">
       <div>
-        <label htmlFor="email" className="block text-[12px] font-medium text-ink">
+        <label htmlFor="email" className="block text-[1rem] font-medium text-ink">
           Email
         </label>
         <input
@@ -46,12 +46,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[13px] text-ink outline-none focus:border-ink"
+          className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[1.0625rem] text-ink outline-none focus:border-ink"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-[12px] font-medium text-ink">
+        <label htmlFor="password" className="block text-[1rem] font-medium text-ink">
           Password
         </label>
         <input
@@ -61,12 +61,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[13px] text-ink outline-none focus:border-ink"
+          className="mt-1 w-full rounded-sm border border-border bg-paper px-2.5 py-2 text-[1.0625rem] text-ink outline-none focus:border-ink"
         />
       </div>
 
       {error && (
-        <div role="alert" className="rounded-sm border border-danger bg-danger-bg px-2.5 py-2 text-[12px] text-danger">
+        <div role="alert" className="rounded-sm border border-danger bg-danger-bg px-2.5 py-2 text-[1rem] text-danger">
           {error}
         </div>
       )}
@@ -74,7 +74,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       <button
         onClick={submit}
         disabled={submitting || !email || !password}
-        className="w-full rounded-sm bg-ink px-3 py-2 text-[13px] font-semibold text-paper disabled:opacity-50"
+        className="w-full rounded-sm bg-ink px-3 py-2 text-[1.0625rem] font-semibold text-paper disabled:opacity-50"
       >
         {submitting ? "Signing in…" : "Sign in"}
       </button>

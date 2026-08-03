@@ -10,7 +10,7 @@ export function ResetSeedButton() {
 
   return (
     <button
-      className="rounded-sm border border-border bg-surface px-3 py-1.5 text-[12px] font-medium text-ink-muted hover:border-ink hover:text-ink disabled:opacity-50"
+      className="rounded-sm border border-border bg-surface px-3 py-1.5 text-[1rem] font-medium text-ink-muted hover:border-ink hover:text-ink disabled:opacity-50"
       disabled={pending}
       onClick={() => {
         startTransition(async () => {

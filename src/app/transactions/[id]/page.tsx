@@ -48,11 +48,11 @@ export default async function TransactionDetailPage({ params }: { params: Promis
       <div className="border-b border-border bg-surface px-6 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-mono-data text-ink-muted">{txn.id}</div>
-            <h1 className="font-serif-head text-[20px] font-semibold text-ink">
+            <div className="text-[0.9375rem] font-mono-data text-ink-muted">{txn.id}</div>
+            <h1 className="font-serif-head text-[1.625rem] font-semibold text-ink">
               {addressFact ? JSON.parse(addressFact.structuredValue) : "Property pending confirmation"}
             </h1>
-            <p className="mt-0.5 text-[13px] text-ink-muted">
+            <p className="mt-0.5 text-[1.0625rem] text-ink-muted">
               {buyerFact ? JSON.parse(buyerFact.structuredValue) : "Buyer pending confirmation"}
             </p>
           </div>
@@ -66,7 +66,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             {!latestClosing ? (
               <EmptyState message="No closing proposed or confirmed yet." />
             ) : (
-              <div className="grid grid-cols-2 gap-4 px-4 py-4 text-[13px] sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 px-4 py-4 text-[1.0625rem] sm:grid-cols-4">
                 <Field label="Status"><StatusChip status={latestClosing.status} /></Field>
                 <Field label="Date">{latestClosing.date ? displayFactValue("CLOSING_DATE", JSON.parse(latestClosing.date)) : "TBD"}</Field>
                 <Field label="Time">{latestClosing.time ?? "TBD"}</Field>
@@ -79,9 +79,9 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             {currentFacts.length === 0 ? (
               <EmptyState message="No facts extracted yet." />
             ) : (
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[1.0625rem]">
                 <thead>
-                  <tr className="border-b border-border bg-paper text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                  <tr className="border-b border-border bg-paper text-left text-[0.9375rem] uppercase tracking-wide text-ink-muted">
                     <th className="px-4 py-2 font-medium">Fact</th>
                     <th className="px-4 py-2 font-medium">Value</th>
                     <th className="px-4 py-2 font-medium">Confidence</th>
@@ -108,13 +108,13 @@ export default async function TransactionDetailPage({ params }: { params: Promis
 
           {supersededFacts.length > 0 && (
             <Panel title="Superseded facts (history preserved)">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[1.0625rem]">
                 <tbody className="divide-y divide-line">
                   {supersededFacts.map((f) => (
                     <tr key={f.id} className="opacity-70">
                       <td className="px-4 py-2 font-medium text-ink line-through decoration-danger">{titleCaseEnum(f.factType)}</td>
                       <td className="px-4 py-2 text-ink-muted line-through">{displayFactValue(f.factType, JSON.parse(f.structuredValue))}</td>
-                      <td className="px-4 py-2 text-[11px] text-ink-muted">superseded</td>
+                      <td className="px-4 py-2 text-[0.9375rem] text-ink-muted">superseded</td>
                       <td className="px-4 py-2">
                         <Link href={`/email/${f.sourceEmailId}`} className="text-info underline">
                           view email
@@ -133,10 +133,10 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             ) : (
               <div className="divide-y divide-line">
                 {tasks.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between px-4 py-2.5 text-[13px]">
+                  <div key={t.id} className="flex items-center justify-between px-4 py-2.5 text-[1.0625rem]">
                     <div>
                       <div className="font-medium text-ink">{t.title}</div>
-                      <div className="text-[11px] text-ink-muted">{t.category} · requested by {t.requester ?? "—"}</div>
+                      <div className="text-[0.9375rem] text-ink-muted">{t.category} · requested by {t.requester ?? "—"}</div>
                     </div>
                     <StatusChip status={t.status} />
                   </div>
@@ -151,12 +151,12 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             ) : (
               <div className="divide-y divide-line">
                 {relatedEmail.map((m) => (
-                  <Link key={m.id} href={`/email/${m.id}`} className="block px-4 py-2.5 text-[13px] hover:bg-paper">
+                  <Link key={m.id} href={`/email/${m.id}`} className="block px-4 py-2.5 text-[1.0625rem] hover:bg-paper">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{m.subject}</span>
-                      <span className="text-[11px] text-ink-muted">{formatDateTime(m.sentAt)}</span>
+                      <span className="text-[0.9375rem] text-ink-muted">{formatDateTime(m.sentAt)}</span>
                     </div>
-                    <div className="text-[11px] text-ink-muted">
+                    <div className="text-[0.9375rem] text-ink-muted">
                       {m.direction === "INCOMING" ? "From" : "To"}: {m.direction === "INCOMING" ? m.fromAddress : JSON.parse(m.toAddresses).join(", ")}
                     </div>
                   </Link>
@@ -173,12 +173,12 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             ) : (
               <div className="divide-y divide-line">
                 {reviewItems.map((r) => (
-                  <div key={r.id} className="px-4 py-2.5 text-[13px]">
+                  <div key={r.id} className="px-4 py-2.5 text-[1.0625rem]">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{titleCaseEnum(r.proposalType)}</span>
                       <StatusChip status={r.status} />
                     </div>
-                    <div className="mt-1 text-[11px] text-ink-muted">{r.reason}</div>
+                    <div className="mt-1 text-[0.9375rem] text-ink-muted">{r.reason}</div>
                   </div>
                 ))}
               </div>
@@ -191,9 +191,9 @@ export default async function TransactionDetailPage({ params }: { params: Promis
             ) : (
               <div className="divide-y divide-line">
                 {auditEvents.map((ev) => (
-                  <div key={ev.id} className="px-4 py-2.5 text-[13px]">
+                  <div key={ev.id} className="px-4 py-2.5 text-[1.0625rem]">
                     <div className="text-ink">{ev.summary}</div>
-                    <div className="text-[11px] text-ink-muted">{formatDateTime(ev.createdAt)}</div>
+                    <div className="text-[0.9375rem] text-ink-muted">{formatDateTime(ev.createdAt)}</div>
                   </div>
                 ))}
               </div>
@@ -208,7 +208,7 @@ export default async function TransactionDetailPage({ params }: { params: Promis
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wide text-ink-muted">{label}</div>
+      <div className="text-[0.9375rem] uppercase tracking-wide text-ink-muted">{label}</div>
       <div className="mt-0.5 text-ink">{children}</div>
     </div>
   );

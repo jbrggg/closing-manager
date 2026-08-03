@@ -37,7 +37,7 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-sm border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide ${
+            className={`rounded-sm border px-2.5 py-1 text-[0.9375rem] font-medium uppercase tracking-wide ${
               filter === f ? "border-ink bg-ink text-paper" : "border-border bg-surface text-ink-muted hover:text-ink"
             }`}
           >
@@ -50,9 +50,9 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
         {filtered.length === 0 ? (
           <EmptyState message="No tasks match this filter." />
         ) : (
-          <table className="w-full text-[13px]">
+          <table className="w-full text-[1.0625rem]">
             <thead>
-              <tr className="border-b border-border bg-paper text-left text-[11px] uppercase tracking-wide text-ink-muted">
+              <tr className="border-b border-border bg-paper text-left text-[0.9375rem] uppercase tracking-wide text-ink-muted">
                 <th className="px-4 py-2.5 font-medium">Task</th>
                 <th className="px-4 py-2.5 font-medium">Category</th>
                 <th className="px-4 py-2.5 font-medium">Priority</th>
@@ -68,12 +68,12 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
                   <td className="px-4 py-2.5">
                     <div className="font-medium text-ink">{t.title}</div>
                     {t.propertyAddress && (
-                      <Link href={`/transactions/${t.transactionId}`} className="text-[11px] text-info underline">
+                      <Link href={`/transactions/${t.transactionId}`} className="text-[0.9375rem] text-info underline">
                         {t.propertyAddress}
                       </Link>
                     )}
                     {t.waitingCondition && (
-                      <div className="mt-0.5 text-[11px] text-tentative">Waiting: {t.waitingCondition}</div>
+                      <div className="mt-0.5 text-[0.9375rem] text-tentative">Waiting: {t.waitingCondition}</div>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-ink-muted">{t.category}</td>
@@ -81,7 +81,7 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
                   <td className="px-4 py-2.5"><StatusChip status={t.status} /></td>
                   <td className="px-4 py-2.5 text-ink-muted">
                     {formatDateTime(t.dueAt)}
-                    {Boolean(t.dueIsInferred) && <span className="ml-1 text-[10px] text-tentative">(inferred)</span>}
+                    {Boolean(t.dueIsInferred) && <span className="ml-1 text-[0.875rem] text-tentative">(inferred)</span>}
                   </td>
                   <td className="px-4 py-2.5"><ConfidencePill value={t.confidence} /></td>
                   <td className="px-4 py-2.5 text-right">
@@ -89,7 +89,7 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
                       <button
                         disabled={pending}
                         onClick={() => act(t.id, "reopen")}
-                        className="text-[11px] font-medium text-info underline disabled:opacity-50"
+                        className="text-[0.9375rem] font-medium text-info underline disabled:opacity-50"
                       >
                         Reopen
                       </button>
@@ -97,7 +97,7 @@ export function TaskTable({ tasks }: { tasks: any[] }) {
                       <button
                         disabled={pending}
                         onClick={() => act(t.id, "complete")}
-                        className="text-[11px] font-medium text-confirmed underline disabled:opacity-50"
+                        className="text-[0.9375rem] font-medium text-confirmed underline disabled:opacity-50"
                       >
                         Mark complete
                       </button>

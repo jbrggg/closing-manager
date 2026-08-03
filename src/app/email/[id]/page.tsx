@@ -23,8 +23,8 @@ export default async function EmailEvidencePage({ params }: { params: Promise<{ 
   return (
     <div>
       <div className="border-b border-border bg-surface px-6 py-5">
-        <div className="text-[11px] font-mono-data text-ink-muted">Mock provider · message {message.id}</div>
-        <h1 className="font-serif-head text-[18px] font-semibold text-ink">{thread?.subject ?? message.subject}</h1>
+        <div className="text-[0.9375rem] font-mono-data text-ink-muted">Mock provider · message {message.id}</div>
+        <h1 className="font-serif-head text-[1.375rem] font-semibold text-ink">{thread?.subject ?? message.subject}</h1>
       </div>
 
       <div className="grid grid-cols-1 gap-4 px-6 py-6 lg:grid-cols-3">
@@ -32,21 +32,21 @@ export default async function EmailEvidencePage({ params }: { params: Promise<{ 
           <Panel title="Full thread">
             <div className="divide-y divide-line">
               {threadMessages.map((m) => (
-                <div key={m.id} className={`px-4 py-3 text-[13px] ${m.id === message.id ? "bg-info-bg" : ""}`}>
+                <div key={m.id} className={`px-4 py-3 text-[1.0625rem] ${m.id === message.id ? "bg-info-bg" : ""}`}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-ink">
                       {m.direction === "INCOMING" ? m.fromAddress : `You (${message.direction === "OUTGOING" ? "sent" : "reply"})`}
                     </span>
-                    <span className="text-[11px] text-ink-muted">{formatDateTime(m.sentAt)}</span>
+                    <span className="text-[0.9375rem] text-ink-muted">{formatDateTime(m.sentAt)}</span>
                   </div>
-                  <div className="text-[11px] text-ink-muted">
+                  <div className="text-[0.9375rem] text-ink-muted">
                     To: {JSON.parse(m.toAddresses).join(", ")} · {m.direction}
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-ink">{m.bodyText}</p>
                   {m.id === message.id && attachments.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {attachments.map((a) => (
-                        <div key={a.id} className="inline-flex items-center gap-1 rounded-sm border border-line bg-paper px-2 py-1 text-[11px] text-ink-muted">
+                        <div key={a.id} className="inline-flex items-center gap-1 rounded-sm border border-line bg-paper px-2 py-1 text-[0.9375rem] text-ink-muted">
                           📎 {a.filename}
                         </div>
                       ))}
@@ -65,15 +65,15 @@ export default async function EmailEvidencePage({ params }: { params: Promise<{ 
             ) : (
               <div className="divide-y divide-line">
                 {extractedFacts.map((f) => (
-                  <div key={f.id} className="px-4 py-2.5 text-[13px]">
+                  <div key={f.id} className="px-4 py-2.5 text-[1.0625rem]">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{titleCaseEnum(f.factType)}</span>
                       <ConfidencePill value={f.confidence} />
                     </div>
                     <div className="mt-0.5 text-ink-muted">{displayFactValue(f.factType, JSON.parse(f.structuredValue))}</div>
-                    <div className="mt-0.5 text-[11px] text-ink-muted">{f.evidenceSummary}</div>
+                    <div className="mt-0.5 text-[0.9375rem] text-ink-muted">{f.evidenceSummary}</div>
                     {f.transactionId && (
-                      <Link href={`/transactions/${f.transactionId}`} className="mt-1 inline-block text-[11px] text-info underline">
+                      <Link href={`/transactions/${f.transactionId}`} className="mt-1 inline-block text-[0.9375rem] text-info underline">
                         View transaction →
                       </Link>
                     )}
@@ -89,14 +89,14 @@ export default async function EmailEvidencePage({ params }: { params: Promise<{ 
             ) : (
               <div className="divide-y divide-line">
                 {proposals.map((p) => (
-                  <div key={p.id} className="px-4 py-2.5 text-[13px]">
+                  <div key={p.id} className="px-4 py-2.5 text-[1.0625rem]">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{titleCaseEnum(p.proposalType)}</span>
                       <ConfidencePill value={p.confidence} />
                     </div>
-                    <div className="mt-0.5 text-[11px] text-ink-muted">{titleCaseEnum(p.status)}</div>
+                    <div className="mt-0.5 text-[0.9375rem] text-ink-muted">{titleCaseEnum(p.status)}</div>
                     {p.transactionId && (
-                      <Link href={`/transactions/${p.transactionId}`} className="mt-1 inline-block text-[11px] text-info underline">
+                      <Link href={`/transactions/${p.transactionId}`} className="mt-1 inline-block text-[0.9375rem] text-info underline">
                         View transaction →
                       </Link>
                     )}

@@ -21,6 +21,7 @@
     "verify:full": "node scripts/verify.mjs --build",
     "import": "tsx scripts/import-mail.mts",
     "backup": "node scripts/backup.mjs",
+    "scale-type": "node scripts/scale-type.mjs",
     "export-cases": "tsx scripts/export-cases.mts"
   },
   "dependencies": {

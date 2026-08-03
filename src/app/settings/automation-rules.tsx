@@ -36,7 +36,7 @@ export function AutomationRules({ initialRules }: { initialRules: Rule[] }) {
 
   return (
     <div>
-      <div className="border-b border-border px-4 py-3 text-[13px]">
+      <div className="border-b border-border px-4 py-3 text-[1.0625rem]">
         <div className="flex items-center gap-2">
           <StatusChip
             status={anyEnabled ? "TENTATIVE" : "PENDING"}
@@ -50,9 +50,9 @@ export function AutomationRules({ initialRules }: { initialRules: Rule[] }) {
         </p>
       </div>
 
-      <table className="w-full text-[13px]">
+      <table className="w-full text-[1.0625rem]">
         <thead>
-          <tr className="border-b border-border bg-paper text-left text-[11px] uppercase tracking-wide text-ink-muted">
+          <tr className="border-b border-border bg-paper text-left text-[0.9375rem] uppercase tracking-wide text-ink-muted">
             <th className="px-4 py-2 font-medium">Action type</th>
             <th className="px-4 py-2 font-medium">Min confidence</th>
             <th className="px-4 py-2 font-medium text-right">Automation</th>
@@ -74,14 +74,14 @@ export function AutomationRules({ initialRules }: { initialRules: Rule[] }) {
                     const v = Number(e.target.value);
                     if (!Number.isNaN(v) && v !== r.minConfidence) update(r.actionType, { minConfidence: v });
                   }}
-                  className="w-20 rounded-sm border border-border bg-paper px-2 py-1 font-mono-data text-[12px]"
+                  className="w-20 rounded-sm border border-border bg-paper px-2 py-1 font-mono-data text-[1rem]"
                 />
               </td>
               <td className="px-4 py-2.5 text-right">
                 <button
                   disabled={pending}
                   onClick={() => update(r.actionType, { enabled: !r.enabled })}
-                  className={`rounded-sm border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide disabled:opacity-50 ${
+                  className={`rounded-sm border px-2.5 py-1 text-[0.9375rem] font-semibold uppercase tracking-wide disabled:opacity-50 ${
                     r.enabled
                       ? "border-tentative bg-tentative-bg text-tentative"
                       : "border-border bg-surface text-ink-muted hover:text-ink"

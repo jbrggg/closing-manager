@@ -51,9 +51,9 @@ export default async function TransactionsPage() {
           <EmptyState message="No transactions yet." />
         ) : (
           <div className="overflow-hidden rounded-sm border border-border bg-surface">
-            <table className="w-full text-[13px]">
+            <table className="w-full text-[1.0625rem]">
               <thead>
-                <tr className="border-b border-border bg-paper text-left text-[11px] uppercase tracking-wide text-ink-muted">
+                <tr className="border-b border-border bg-paper text-left text-[0.9375rem] uppercase tracking-wide text-ink-muted">
                   <th className="px-4 py-2.5 font-medium">Property</th>
                   <th className="px-4 py-2.5 font-medium">Buyer</th>
                   <th className="px-4 py-2.5 font-medium">Status</th>
@@ -70,7 +70,7 @@ export default async function TransactionsPage() {
                       <Link href={`/transactions/${t.id}`} className="font-medium text-ink hover:underline">
                         {t.propertyAddress}
                       </Link>
-                      <div className="font-mono-data text-[11px] text-ink-muted">{t.id.slice(0, 8)}</div>
+                      <div className="font-mono-data text-[0.9375rem] text-ink-muted">{t.id.slice(0, 8)}</div>
                     </td>
                     <td className="px-4 py-2.5 text-ink-muted">{t.buyerName}</td>
                     <td className="px-4 py-2.5">

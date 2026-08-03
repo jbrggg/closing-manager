@@ -33,13 +33,13 @@ export default async function ActivityPage() {
           ) : (
             <div className="divide-y divide-line">
               {events.map((ev) => (
-                <div key={ev.id} className="flex items-start gap-3 px-4 py-3 text-[13px]">
-                  <span className="mt-0.5 text-[14px]">{EVENT_ICON[ev.eventType] ?? "•"}</span>
+                <div key={ev.id} className="flex items-start gap-3 px-4 py-3 text-[1.0625rem]">
+                  <span className="mt-0.5 text-[1.125rem]">{EVENT_ICON[ev.eventType] ?? "•"}</span>
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ink">{titleCaseEnum(ev.eventType)}</span>
                       <span
-                        className={`rounded-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                        className={`rounded-sm px-1.5 py-0.5 text-[0.875rem] font-semibold uppercase ${
                           ev.actorType === "AI"
                             ? "bg-info-bg text-info"
                             : ev.actorType === "HUMAN"
@@ -51,7 +51,7 @@ export default async function ActivityPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-ink-muted">{ev.summary}</p>
-                    <p className="mt-1 text-[11px] text-ink-muted">{formatDateTime(ev.createdAt)}</p>
+                    <p className="mt-1 text-[0.9375rem] text-ink-muted">{formatDateTime(ev.createdAt)}</p>
                   </div>
                 </div>
               ))}

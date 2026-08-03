@@ -56,14 +56,14 @@ export default async function BoardPage() {
                   <Link
                     key={c.id}
                     href={`/transactions/${c.transactionId}`}
-                    className="block px-4 py-3 text-[13px] hover:bg-paper"
+                    className="block px-4 py-3 text-[1.0625rem] hover:bg-paper"
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{c.propertyAddress}</span>
                       <StatusChip status={c.status} />
                     </div>
                     <div className="mt-1 text-ink-muted">{c.buyerName}</div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-ink-muted">
+                    <div className="mt-1 flex items-center gap-2 text-[0.9375rem] text-ink-muted">
                       <span>{c.time ?? "Time TBD"}</span>
                       <span>·</span>
                       <span>{c.locationTBD ? "Location TBD" : c.location ?? "Location TBD"}</span>
