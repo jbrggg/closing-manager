@@ -94,7 +94,15 @@ CREATE TABLE IF NOT EXISTS EmailAttachment (
   messageId TEXT NOT NULL,
   filename TEXT NOT NULL,
   mimeType TEXT NOT NULL,
-  sizeBytes INTEGER NOT NULL
+  sizeBytes INTEGER NOT NULL,
+  -- Where the bytes actually live. NULL means we recorded that a file was
+  -- attached but never held it - true for everything ingested before document
+  -- storage existed. See src/lib/storage/.
+  storageKey TEXT,
+  -- SHA-256 of the bytes. Two attachments with the same hash ARE the same
+  -- document, which is how "is the HUD they approved the one we sent?"
+  -- becomes a comparison rather than an opinion.
+  sha256 TEXT
 );
 
 CREATE TABLE IF NOT EXISTS Person (

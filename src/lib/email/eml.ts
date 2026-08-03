@@ -13,6 +13,12 @@ import { htmlToPlainText } from "./graph-mapping";
 // useful afterwards for reproducing "why did it do that with THIS email".
 // -----------------------------------------------------------------------------
 
+export interface ParsedAttachment {
+  filename: string;
+  mimeType: string;
+  bytes: Buffer;
+}
+
 export interface ParsedEmail {
   messageId?: string;
   from: string;
@@ -26,6 +32,13 @@ export interface ParsedEmail {
   body: string;
   /** Every address seen on the envelope, lowercased and deduped. */
   participants: string[];
+  /**
+   * Files carried by the message. In title work these are the job — the HUD,
+   * the CPL, the commitment, the search package — so they are kept rather
+   * than discarded. Inline images (a signature logo) are excluded; only
+   * things a person would call an attachment.
+   */
+  attachments: ParsedAttachment[];
 }
 
 /**
@@ -172,6 +185,61 @@ function extractText(body: string, headers: Record<string, string>): string {
   return html;
 }
 
+/** Decode a part's body to raw bytes, honouring its transfer encoding. */
+function decodeBodyToBytes(body: string, headers: Record<string, string>): Buffer {
+  const encoding = (headers["content-transfer-encoding"] ?? "").toLowerCase().trim();
+  if (encoding === "base64") return Buffer.from(body.replace(/\s+/g, ""), "base64");
+  if (encoding === "quoted-printable") return Buffer.from(decodeQuotedPrintable(body), "utf-8");
+  return Buffer.from(body, "utf-8");
+}
+
+/**
+ * Walk a multipart message collecting real attachments.
+ *
+ * "Real" means it has a filename and is not `inline` — a signature logo is
+ * technically an attachment and is not one in any sense the office cares
+ * about. Anything with a Content-Disposition of `attachment`, or a name in
+ * its Content-Type, counts.
+ */
+function extractAttachments(body: string, headers: Record<string, string>): ParsedAttachment[] {
+  const contentType = headers["content-type"] ?? "";
+  const boundaryMatch = contentType.match(/boundary="?([^";]+)"?/i);
+  if (!boundaryMatch) return [];
+
+  const boundary = boundaryMatch[1].trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = body.split(new RegExp(`^--${boundary}(?:--)?[ \\t]*$`, "m"));
+
+  const found: ParsedAttachment[] = [];
+  for (const part of parts) {
+    if (!part || !part.trim()) continue;
+    const { headerText, body: partBody } = splitHeadersAndBody(part.replace(/^\n+/, ""));
+    const partHeaders = parseHeaders(headerText);
+    const partType = partHeaders["content-type"] ?? "";
+
+    if (/multipart\//i.test(partType)) {
+      found.push(...extractAttachments(partBody, partHeaders));
+      continue;
+    }
+
+    const disposition = partHeaders["content-disposition"] ?? "";
+    const nameMatch =
+      disposition.match(/filename\*?="?([^";]+)"?/i) ?? partType.match(/name\*?="?([^";]+)"?/i);
+    if (!nameMatch) continue;
+    // Inline images are signature logos and tracking pixels, not documents.
+    if (/^\s*inline/i.test(disposition)) continue;
+
+    const bytes = decodeBodyToBytes(partBody, partHeaders);
+    if (bytes.length === 0) continue;
+
+    found.push({
+      filename: decodeEncodedWords(nameMatch[1]).trim(),
+      mimeType: (partType.split(";")[0] || "application/octet-stream").trim().toLowerCase(),
+      bytes,
+    });
+  }
+  return found;
+}
+
 /** Parse one raw RFC 822 message. */
 export function parseEml(raw: string): ParsedEmail {
   const { headerText, body } = splitHeadersAndBody(raw);
@@ -198,6 +266,7 @@ export function parseEml(raw: string): ParsedEmail {
     sentAt,
     body: extractText(body, headers).replace(/\r\n/g, "\n").trim(),
     participants: [...new Set([from, ...to, ...cc])].filter(Boolean),
+    attachments: extractAttachments(body, headers),
   };
 }
 

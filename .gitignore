@@ -60,3 +60,6 @@ next-env.d.ts
 
 # Exported test papers - contain the same real email as cases/private/
 /evals/export/
+
+# Stored email attachments - real client documents, never committed
+/storage/

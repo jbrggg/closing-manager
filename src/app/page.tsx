@@ -60,17 +60,39 @@ export default async function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Integration status" className="lg:col-span-1">
+        <Panel title="Mailbox" className="lg:col-span-1">
           <div className="divide-y divide-line">
             {emailAccounts.map((acct) => (
-              <div key={acct.id} className="flex items-center justify-between px-4 py-2.5 text-[13px]">
-                <div>
+              <div key={acct.id} className="px-4 py-2.5 text-[13px]">
+                <div className="flex items-center justify-between">
                   <div className="font-medium text-ink">{acct.emailAddress}</div>
-                  <div className="text-[11px] text-ink-muted">Provider: {acct.providerType} (mock)</div>
+                  <StatusChip
+                    status={acct.lastSyncError ? "CANCELLED" : acct.connected ? "CONFIRMED" : "CANCELLED"}
+                    label={acct.lastSyncError ? "Needs attention" : acct.connected ? "Connected" : "Disconnected"}
+                  />
                 </div>
-                <StatusChip status={acct.connected ? "CONFIRMED" : "CANCELLED"} label={acct.connected ? "Connected" : "Disconnected"} />
+                <div className="mt-0.5 text-[11px] text-ink-muted">
+                  {acct.providerType === "MOCK" ? "Sample data — no real mailbox connected" : `Provider: ${acct.providerType}`}
+                </div>
+
+                {/* Sync health. A scheduled sync that quietly stopped running
+                    looks exactly like a quiet mailbox, so "when did it last
+                    finish" has to be visible even when nothing new arrived. */}
+                {acct.lastSyncError ? (
+                  <p className="mt-2 rounded-sm border border-danger bg-review-bg p-2 text-[11px] text-danger">
+                    Last sync failed: {acct.lastSyncError}
+                  </p>
+                ) : acct.lastSyncFinishedAt ? (
+                  <p className="mt-2 text-[11px] text-ink-muted">
+                    Last sync {formatRelative(acct.lastSyncFinishedAt)}
+                    {acct.lastSyncSummary ? ` — ${acct.lastSyncSummary}` : ""}
+                  </p>
+                ) : acct.providerType !== "MOCK" ? (
+                  <p className="mt-2 text-[11px] text-ink-muted">Has not synced yet.</p>
+                ) : null}
               </div>
             ))}
+            {emailAccounts.length === 0 && <EmptyState message="No mailbox connected yet." />}
           </div>
         </Panel>
 

@@ -37,6 +37,10 @@ const ADDITIVE_COLUMNS: { table: string; column: string; definition: string }[] 
   // What the last sync actually did, for the dashboard's sync health panel.
   { table: "EmailAccount", column: "lastSyncSummary", definition: "TEXT" },
   { table: "EmailAccount", column: "lastSyncFinishedAt", definition: "TEXT" },
+  // Where an attachment's bytes live, and their hash. NULL on anything
+  // ingested before document storage existed. See src/lib/storage/.
+  { table: "EmailAttachment", column: "storageKey", definition: "TEXT" },
+  { table: "EmailAttachment", column: "sha256", definition: "TEXT" },
 ];
 
 function applyAdditiveColumns(db: DatabaseSync) {

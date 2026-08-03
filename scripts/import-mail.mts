@@ -31,7 +31,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { all, get, run, nowIso } from "@/lib/db";
 import { parseEml, splitMbox } from "@/lib/email/eml";
-import { unwrapForwarded, directionFor, isOurAddress } from "@/lib/email/forwarded";
+import { unwrapForwarded, directionFor } from "@/lib/email/forwarded";
+import { getDocumentStore } from "@/lib/storage";
 import { processEmailMessage } from "@/lib/ai/process-email";
 import { recordAudit } from "@/lib/services/audit";
 import { loadEnvLocal } from "./load-env.mts";
@@ -126,6 +127,7 @@ if (messages.length === 0) {
 }
 
 const account = ensureAccount();
+const store = getDocumentStore();
 
 if (reset && !dryRun) {
   const ids = all<{ id: string }>(`SELECT id FROM EmailMessage WHERE id LIKE 'import-%'`).map((r) => r.id);
@@ -217,6 +219,24 @@ for (const { source, raw } of messages) {
     ]
   );
 
+  // Keep the documents, not just the fact that documents existed. In title
+  // work the HUD, CPL and commitment ARE the job.
+  let storedCount = 0;
+  for (const att of parsed.attachments) {
+    try {
+      const doc = await store.put(att.bytes, att.filename);
+      run(
+        `INSERT INTO EmailAttachment (id, messageId, filename, mimeType, sizeBytes, storageKey, sha256)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [randomUUID(), messageId, att.filename, att.mimeType, doc.sizeBytes, doc.storageKey, doc.sha256]
+      );
+      storedCount++;
+    } catch (err) {
+      // A document we cannot store must not lose us the email.
+      console.log(`        ! could not store "${att.filename}": ${String(err instanceof Error ? err.message : err)}`);
+    }
+  }
+
   recordAudit({
     organizationId: ORG_ID,
     eventType: "email_imported",
@@ -231,7 +251,7 @@ for (const { source, raw } of messages) {
 
   try {
     await processEmailMessage(messageId);
-    console.log(`  ${label}${forwardNote}`);
+    console.log(`  ${label}${forwardNote}${storedCount ? `  [${storedCount} file(s) kept]` : ""}`);
     summary.push(`${direction} — ${parsed.subject}`);
     imported++;
   } catch (err) {
