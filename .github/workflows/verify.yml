@@ -1,0 +1,110 @@
+name: Verify
+
+# Runs the same checks as `npm run verify` on every push and pull request.
+#
+# WHY WINDOWS IS IN HERE AND WHY IT MATTERS MOST
+#
+# This project has already been burned once by trusting a Linux-green test
+# run. `resetDb()` reported 132/132 passing on Linux for weeks while being
+# broken on Windows, because unlinking a file that still has an open handle
+# succeeds on Linux and throws EBUSY on Windows. The owner runs Windows. The
+# standing warning at the top of CLAUDE.md exists because of it.
+#
+# Running the suite on windows-latest turns that warning into something
+# enforced instead of remembered. Ubuntu is here as well because it is fast
+# and cheap and catches most things first; Windows is the authoritative one.
+#
+# Node 22 is also tested, because README and CLAUDE.md both claim "Node 22.5+
+# required" — this proves the claim rather than asserting it.
+#
+# WHAT THIS DELIBERATELY DOES NOT RUN
+#
+# `npm run eval` is not here. It calls a paid API and needs a key, and the
+# scorecard is non-deterministic by design — a single run proves nothing and
+# a flaky case would produce red builds that mean nothing. Accuracy is
+# measured by a human running `npm run eval` deliberately, not by CI.
+#
+# No secrets are configured for this workflow on purpose. With no
+# ANTHROPIC_API_KEY present the AI provider falls back to the offline
+# word-matcher, so a stray network call cannot happen and cannot cost money.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets you re-run it by hand from the Actions tab without pushing anything.
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run on the same branch rather than
+# queueing behind it.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    strategy:
+      # Don't cancel Windows because Ubuntu failed — when they disagree, that
+      # difference is the single most useful signal this workflow produces.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            node: 24
+            label: Windows / Node 24
+          - os: ubuntu-latest
+            node: 24
+            label: Linux / Node 24
+          - os: ubuntu-latest
+            node: 22
+            label: Linux / Node 22 (the stated minimum)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json pins, and fails
+      # outright if the lockfile and package.json disagree. That is the point
+      # of committing the lockfile: everyone, including CI, gets the same tree.
+      - name: Install
+        run: npm ci
+
+      # Node 22.5+ is required for the built-in node:sqlite module. If this
+      # ever fails, the tests below would fail confusingly instead.
+      - name: Confirm node:sqlite is available
+        run: node -e "require('node:sqlite'); console.log('node:sqlite OK on', process.version)"
+
+      # Type check + tests + linter, in parallel, one verdict.
+      - name: Verify
+        run: npm run verify
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only worth the minutes once the fast checks are green.
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
