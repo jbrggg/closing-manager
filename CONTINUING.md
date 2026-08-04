@@ -176,10 +176,22 @@ one machine, the current setup is genuinely fine.
 
 Three things travel together, because a server cannot use files on your laptop:
 
-**5a. PostgreSQL.** The design file already describes every table in PostgreSQL
-terms — that work is done. What remains: install the tooling, run the migration,
-swap the query layer. **One file is the seam.** Half a day, most of it verifying
-nothing broke.
+**5a. PostgreSQL — this is Supabase.** Decided 2026-08-03. Supabase connected
+cleanly; the Prisma connector would not connect at all, so that path is closed
+and the leftover `prisma.compute.json` should be deleted.
+
+The design file already describes every table in PostgreSQL terms — that work is
+done. What remains: install the tooling, run the migration, swap the query
+layer. **One file is the seam** (`src/lib/db.ts`). Half a day, most of it
+verifying nothing broke.
+
+Two things to get right when it happens:
+
+- The project is on a tier that **pauses itself after inactivity.** Acceptable
+  while migrating and testing; not acceptable for a system of record that has to
+  answer at 9am on a closing day. Budget for the tier that stays awake.
+- Use Supabase's **connection pooler**, not a direct connection. A serverless
+  host opens and closes connections constantly and will exhaust a direct one.
 
 **5b. Cloud document storage.** One new file implementing the same interface the
 local store already implements, plus a line in the factory. 2–3 hours. It was

@@ -27,6 +27,13 @@ named, so they stay accurate whichever provider this is pointed at.
 | **[ACCESSIBILITY.md](ACCESSIBILITY.md)** | *Can everyone actually use this?* A WCAG 2.1 AA audit — 6 issues found, 6 fixed, 32 colour pairings measured. |
 | **[DESIGNING-THE-INTERFACE.md](DESIGNING-THE-INTERFACE.md)** | *How do I change how it looks?* Working on the interface with an AI assistant, and the two settings that are yours alone. |
 
+And two for handing the work to a coding agent:
+
+| Document | Answers |
+|---|---|
+| **[START-HERE-CLAUDE-CODE.md](START-HERE-CLAUDE-CODE.md)** | *How do I open a coding agent on this project?* Includes a route with no terminal, which model to use for what, and how to split work across sessions. |
+| **[DEPLOY-PROMPT.md](DEPLOY-PROMPT.md)** | The briefing to paste into a fresh agent session to get this deployed. |
+
 If you read one, read `CONTINUING.md`. It says where you actually are.
 
 ---

@@ -1,8 +1,11 @@
 # Prompt for Claude Code — finish and deploy closing-manager
 
-**How to use this:** open a terminal, `cd` into the `closing-manager` folder,
-start Claude Code, and paste everything between the two lines below. Starting
-in the project folder matters — the agent needs to see the repository.
+**How to use this:** see `START-HERE-CLAUDE-CODE.md` for how to launch Claude
+Code pointed at this folder — there is a route that needs no terminal at all.
+Then paste everything between the two marker lines below.
+
+The only thing that matters is that Claude Code is **opened on this folder**.
+That is what "the agent needs to see the repository" means.
 
 ---
 
@@ -57,8 +60,8 @@ In priority order:
 
 1. **Deploy it** so it runs on a computer that is always on, over HTTPS, without
    my laptop being open.
-2. **Migrate the database** from SQLite to PostgreSQL, because a server cannot
-   use a file on my laptop.
+2. **Migrate the database** from SQLite to **Supabase PostgreSQL**, because a
+   server cannot use a file on my laptop.
 3. **Move document storage** off local disk for the same reason.
 4. **Harden it for real use** — rotate the published demo password, create real
    accounts, set up scheduled mail sync, and set up backups *and prove the
@@ -66,16 +69,34 @@ In priority order:
 
 ---
 
+### DECISIONS ALREADY MADE — DO NOT REOPEN THESE
+
+**The database is Supabase.** Decided. Supabase connected cleanly to my tools;
+Prisma's connector would not connect at all, so that path is closed.
+
+Three things you need to know about my Supabase project:
+
+- It is currently **paused** (`INACTIVE`). It will need restoring before use.
+- It is on a tier that **pauses itself after inactivity.** That is fine for
+  migrating and testing, and it is *not* fine for a system of record that has to
+  answer at 9am on a closing day. Tell me plainly when in the process I need to
+  move to a tier that does not pause, and what that costs.
+- Next.js on a serverless host opens and closes connections constantly. Use
+  Supabase's **connection pooler**, not a direct database connection, and say so
+  in the plan.
+
+There is a leftover `prisma.compute.json` in the repository from that failed
+Prisma connector. It is dead configuration for a path we are not taking, and it
+will mislead you or a future session. **Delete it as part of the first stage.**
+
+---
+
 ### DECISIONS YOU MUST ASK ME ABOUT — NEVER GUESS
 
 Stop and ask before acting on any of these:
 
-- **Which PostgreSQL.** I have a **Supabase** project (currently paused,
-  `INACTIVE`) *and* a **Prisma Postgres** integration that has already pushed a
-  `prisma.compute.json` to my repo. That is two competing paths. Help me pick
-  ONE and explain the trade-off. Migrating twice is the expensive version.
 - **Which host**, and what it costs per month. Tell me the real number.
-- **Anything that costs money.** Ever.
+- **Anything that costs money.** Ever. Including the Supabase tier change above.
 - **Any account creation, OAuth consent screen, or payment.** I do those
   myself — describe exactly what to click.
 
@@ -132,6 +153,19 @@ working stage so nothing is lost and anything can be undone precisely.
 do something more than once, write me a script I can double-click. Never tell me
 to run a `curl` command as the primary way to do something — build a page or an
 npm script instead. That mistake was already made once here and corrected.
+
+**Work in stages, and expect this to span several sessions.** I will not do all
+of this in one conversation, because a long session gets less reliable as it
+fills up and starts forgetting decisions made earlier.
+
+So: at the end of each stage, **before I run out of room**, update
+`CONTINUING.md` with exactly where we got to, what is verified, what is not, and
+what the next session should do first. Those documents are the handoff — not my
+memory, and not yours. A fresh session that reads them should be able to pick up
+in a minute.
+
+If you notice the conversation getting long or your own recall getting patchy,
+say so and write the handoff. Do not push on and hope.
 
 ---
 
@@ -199,10 +233,11 @@ starts rebuilding what already works. A new session has no memory of this
 project — it sees a folder and an ambitious instruction. Nearly a third of this
 prompt exists to prevent that one failure.
 
-**The three questions it forces the agent to bring back to you** are the
-Postgres choice, the hosting cost, and the sequencing question. Those are
-genuinely yours to make, and an agent left alone will quietly pick one and
-proceed.
+**The two questions it forces the agent to bring back to you** are the hosting
+cost and the sequencing question. Those are genuinely yours to make, and an
+agent left alone will quietly pick one and proceed. The database question is
+now answered — Supabase — so the prompt states it as settled rather than
+inviting a debate you have already had.
 
 **If the plan it produces starts with "first I'll set up the project structure"
 or mentions creating files that already exist — stop it.** It did not read the
