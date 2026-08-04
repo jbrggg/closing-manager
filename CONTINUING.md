@@ -9,6 +9,127 @@ interface.
 
 ---
 
+# READ THIS FIRST — the deployment plan, agreed 2026-08-03
+
+The owner has decided to deploy. The step order below (Steps 1–5) is still
+correct about *what* the work is, but the agreed sequence is now the stage list
+in this section. **Stage 0 is Step 1 under a different name** — the owner agreed
+to do the real-email validation first, before spending anything.
+
+## Decisions the owner has made. Do not re-ask these.
+
+| Decision | Answer |
+|---|---|
+| Database | **Supabase PostgreSQL.** Settled. Prisma's connector would not connect; that path is closed. |
+| Connection style | **Supabase's connection pooler** (port 6543) for the app; direct (5432) only for migrations and scripts. |
+| Host | **Render.** ~$7/mo always-on web service + ~$1/mo cron job. Chosen over Vercel because it runs a normal long-lived server — no function time limit on a mail sync that reads fifty messages through an AI — and over Railway for more predictable billing. |
+| Supabase tier | Free tier through the migration and testing. **Pro ($25/mo) from the day it goes live**, because the free tier pauses after seven days idle and its backups are not good enough for a system of record. Both problems arrive on the same day. |
+| Total hosting | **~$33/month**, plus usage-based AI spend (to be measured in Stage 0). |
+| Domain | **Free `*.onrender.com` address first**, to confirm the site works. Then point `aglobaltitleagency.com` at it — about ten minutes, and it disturbs nothing. |
+| Sequencing | Validate the AI on real email **first**. See below. |
+
+`prisma.compute.json` **is already gone** — deleted in commit `bb53dfa`. If a
+future session is told to delete it, the job is done; say so and move on.
+
+## The sequencing argument, recorded so it isn't re-litigated
+
+The owner asked whether deploying before validating was a mistake. The answer
+given, and accepted:
+
+Deployment is **not** a prerequisite for connecting a real mailbox. Microsoft
+allows `http://localhost` redirect URIs — this repo's own README already tells
+you to register one — so a live mailbox can be connected and read from the
+owner's laptop today. Scheduled sync without the laptop does need a server, but
+Windows Task Scheduler covers the evaluation period.
+
+The real argument for validating first is that it gives a **clean** answer. With
+348 green tests on an unchanged database, a bad result means the AI is wrong.
+After the database engine has been swapped, the files moved to the cloud, and
+the app put on a server, a bad result is ambiguous. Half a day now buys an
+unambiguous number.
+
+## The honest estimate the earlier version of this document got wrong
+
+Step 5a below says the PostgreSQL migration is "half a day, most of it verifying
+nothing broke." **That is wrong and a session that believes it will run out of
+room mid-change.** The seam claim is right — `getDb()` is used nowhere outside
+`src/lib/db.ts` — but:
+
+- SQLite in Node is **synchronous**; every Postgres driver is **asynchronous**.
+  Roughly 200 call sites across 47 files have to learn to wait, and so does
+  everything calling them. Forgetting to `await` a *write* is not a type error;
+  it is a silent ordering bug. Mitigate with type-aware
+  `no-floating-promises` linting, not care.
+- Postgres folds unquoted identifiers to lowercase, so `organizationId` becomes
+  `organizationid` and every screen reading `organizationId` gets nothing. The
+  fix belongs inside the seam file (map row keys back on the way out); it does
+  not require touching ~200 queries.
+- The 348 tests currently run with **zero setup**. Naive migration means every
+  test needs a database server on Windows and in CI. Use an embedded Postgres
+  that runs in-process instead, so that property survives.
+
+Budget **three or four working sessions for the database alone**, split into two
+separate commits: async-with-SQLite first (provable — tests must stay green with
+nothing else changed), then swap the engine.
+
+## Stage list and status
+
+| Stage | What | Status |
+|---|---|---|
+| **0** | Prove the AI reads real agency email | **In progress — waiting on the owner** |
+| 1 | Housekeeping; stale docs; Postgres test harness | Not started |
+| 2 | Make the data layer async, **keeping SQLite** | Not started |
+| 3 | Swap SQLite for Supabase Postgres behind the same seam | Not started |
+| 4 | Move documents off local disk to cloud storage | Not started |
+| 5 | Deploy to Render over HTTPS — **money starts here** | Not started |
+| 6 | Harden: rotate demo password, real accounts, scheduled sync, backups **with a restore watched working** | Not started |
+| 7 | Connect the real Outlook mailbox | Not started |
+
+Every stage ends with `npm run verify:full` + `npm run contrast`, then a commit.
+Nothing proceeds on a red build.
+
+## Stage 0 — what was built, and what is outstanding
+
+**Done (commit `b07a8ed`), verified on Windows:**
+
+- `/inbox/*` is now **gitignored**. This was a real exposure: every commit
+  auto-pushes to GitHub via `.githooks/post-commit`, so a folder of exported
+  client mail would have been published by the next commit anyone made. Verified
+  with `git check-ignore` — a `.eml` is ignored, `inbox/README.md` is not.
+- `npm run setup` now **asks for `ORG_EMAIL_DOMAINS`**. It was documented in
+  three places and asked for in none. Unset, every message files as INCOMING and
+  the app hunts its own sent mail for requests — which looks like an AI accuracy
+  problem rather than a one-line setting.
+- `import.cmd` and `start-app.cmd` — the no-terminal route. `import.cmd` stops
+  with instructions when the inbox is empty instead of a stack trace.
+- `inbox/README.md` — how to export from Outlook on the web, new Outlook and
+  Gmail; what mix of messages to collect; which surprising outputs are not bugs.
+- Import smoke-tested end to end on a throwaway database with the offline
+  matcher: one message in, facts extracted, two proposals correctly parked in
+  the review queue. **No pipeline, prompt, matching or automation change.**
+
+**Outstanding — this is the owner's part, and the next session should ask about
+it first:**
+
+1. Export 15–25 real messages into `inbox/` (see `inbox/README.md`).
+2. Run `setup.cmd` once and answer the new email-domain question.
+3. Double-click `import.cmd`.
+4. Open the review queue and judge the output. **The formal bar is 15 of 20
+   fully correct.**
+
+Also watch the `scanned/no text` count in the import log — see Step 1 below for
+why that number is the only evidence that will ever exist about OCR.
+
+## What is NOT being done, and must not start
+
+Enabling any automation rule. Requesting send permission from any mail provider.
+Touching the weights in `match.ts`. Rewording the extraction prompt. Redacting
+structured fact values. Rebuilding the UI, the pipeline or the AI provider.
+Building the Gmail adapter, transaction split, or disbursements. Creating
+accounts, clicking OAuth consent, or making payments on the owner's behalf.
+
+---
+
 ## Where things actually stand
 
 **Working and verified:**
@@ -52,7 +173,9 @@ construction, and everything downstream is wasted effort if they fail.
 
 ## Step 1 — Prove the AI reads your email correctly
 
-**This is where you are. Nothing else should start before it.**
+**This is where you are. Nothing else should start before it.** (This is
+"Stage 0" in the deployment plan above. The tooling described below now exists
+as `import.cmd`; steps 4 and 5 are handled by `setup.cmd` and that script.)
 
 **Why first:** everything after this costs money, time, or both. Find out
 whether the core works before paying to run it. If the AI misreads your mail,
@@ -170,6 +293,11 @@ mail actually flows.
 ---
 
 ## Step 5 — Hosting, and what it drags with it
+
+> **Superseded on 2026-08-03.** The owner has decided to deploy now rather than
+> waiting for a second person. Read the agreed plan at the top of this file —
+> particularly the corrected estimate for 5a, which this section understates.
+> The rest of this section is still accurate about *what* the work is.
 
 **Do this when a second person needs access, and not before.** For one person on
 one machine, the current setup is genuinely fine.
