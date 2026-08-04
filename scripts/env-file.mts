@@ -107,3 +107,36 @@ export function looksLikeGuid(value: string): boolean {
 export function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
+
+/**
+ * A comma-separated list of bare domains, e.g. "aglobaltitleagency.com,psatitle.com".
+ *
+ * Worth validating rather than accepting anything, because the failure is
+ * silent: ORG_EMAIL_DOMAINS is what tells our own mail apart from everyone
+ * else's. Get it wrong and every message files as INCOMING, the AI starts
+ * hunting our own sent mail for requests, and the output looks like an AI
+ * accuracy problem rather than a one-line setting.
+ *
+ * A full address is the likely slip ("dana@ourfirm.com" instead of
+ * "ourfirm.com"), so it is rejected specifically — see normalizeDomainList
+ * for the forgiving version used on input.
+ */
+export function looksLikeDomainList(value: string): boolean {
+  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return false;
+  return parts.every((p) => /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(p));
+}
+
+/**
+ * Tidy up what someone actually types: strips a leading "@", pulls the domain
+ * out of a full address, lowercases, and drops blanks and duplicates.
+ */
+export function normalizeDomainList(value: string): string {
+  const seen = new Set<string>();
+  for (const raw of value.split(",")) {
+    const trimmed = raw.trim().toLowerCase().replace(/^@/, "");
+    const domain = trimmed.includes("@") ? trimmed.slice(trimmed.lastIndexOf("@") + 1) : trimmed;
+    if (domain) seen.add(domain);
+  }
+  return [...seen].join(",");
+}

@@ -6,6 +6,8 @@ import {
   maskSecret,
   looksLikeGuid,
   looksLikeEmail,
+  looksLikeDomainList,
+  normalizeDomainList,
 } from "../scripts/env-file.mts";
 
 // `npm run setup` rewrites the one file that holds the API key. If it ever
@@ -129,6 +131,21 @@ describe("input checks that save a support call", () => {
   it("recognises an email address", () => {
     expect(looksLikeEmail("closings@keystonetitle.com")).toBe(true);
     expect(looksLikeEmail("closings")).toBe(false);
+  });
+
+  it("recognises a list of our own domains", () => {
+    expect(looksLikeDomainList("aglobaltitleagency.com")).toBe(true);
+    expect(looksLikeDomainList("aglobaltitleagency.com, psatitle.com")).toBe(true);
+    expect(looksLikeDomainList("")).toBe(false);
+    // The likely slip: pasting a whole address where a domain was asked for.
+    expect(looksLikeDomainList("dana@aglobaltitleagency.com")).toBe(false);
+    expect(looksLikeDomainList("aglobaltitleagency")).toBe(false);
+  });
+
+  it("tidies up what someone actually types", () => {
+    expect(normalizeDomainList("@AGlobalTitleAgency.com")).toBe("aglobaltitleagency.com");
+    expect(normalizeDomainList("dana@aglobaltitleagency.com")).toBe("aglobaltitleagency.com");
+    expect(normalizeDomainList("a.com, ,A.COM , b.com")).toBe("a.com,b.com");
   });
 
   it("never shows enough of a secret to use it", () => {

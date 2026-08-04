@@ -23,6 +23,8 @@ import {
   maskSecret,
   looksLikeGuid,
   looksLikeEmail,
+  looksLikeDomainList,
+  normalizeDomainList,
   EnvEntry,
 } from "./env-file.mts";
 
@@ -56,6 +58,8 @@ async function ask(opts: {
   help?: string;
   secret?: boolean;
   validate?: (value: string) => string | null;
+  /** Tidy the answer before it is checked and stored (trimming, lowercasing). */
+  normalize?: (value: string) => string;
   fallback?: string;
   optional?: boolean;
 }): Promise<string> {
@@ -68,7 +72,8 @@ async function ask(opts: {
     const answer = (await rl.question(`  ${opts.label}: `)).trim();
     console.log("");
 
-    const value = answer === "" ? current || opts.fallback || "" : answer;
+    const raw = answer === "" ? current || opts.fallback || "" : answer;
+    const value = raw && opts.normalize ? opts.normalize(raw) : raw;
 
     if (value === "" && !opts.optional) {
       console.log("  That one is required. Try again.\n");
@@ -91,6 +96,9 @@ async function ask(opts: {
 
 console.log("  1. Mailbox");
 console.log("  " + "-".repeat(50));
+
+/** Used to suggest the agency's own domain in section 2. */
+let mailboxAddress = existing.get("MICROSOFT_MAILBOX") ?? "";
 const connectOutlook = (
   await rl.question("  Connect a real Outlook / Microsoft 365 mailbox? [Y/n]: ")
 )
@@ -139,7 +147,7 @@ if (wantsOutlook) {
           : null,
   });
 
-  await ask({
+  mailboxAddress = await ask({
     key: "MICROSOFT_MAILBOX",
     label: "Mailbox address to read",
     help: "The address whose inbox this app should watch, e.g. closings@yourfirm.com",
@@ -169,9 +177,42 @@ if (wantsOutlook) {
   if (!existing.has("EMAIL_PROVIDER")) updates.push({ key: "EMAIL_PROVIDER", value: "mock" });
 }
 
-// --- 2. The AI ---------------------------------------------------------------
+// --- 2. Which addresses are OURS ---------------------------------------------
+// Small question, large consequences. This is what tells our own mail apart
+// from everyone else's, and therefore which messages are requests made OF us
+// rather than BY us. Unset, everything files as INCOMING and the app starts
+// raising tasks from our own sent mail — which reads as an AI accuracy
+// problem rather than a missing setting. It was previously only documented,
+// never asked for.
 
-console.log("  2. AI");
+console.log("  2. Your agency's own email");
+console.log("  " + "-".repeat(50));
+
+await ask({
+  key: "ORG_EMAIL_DOMAINS",
+  label: "Your email domain(s)",
+  help:
+    "Just the part after the @, e.g. aglobaltitleagency.com — not a whole\n" +
+    "  address. Separate several with commas. Mail from these counts as sent\n" +
+    "  BY you; everything else counts as sent TO you.",
+  normalize: normalizeDomainList,
+  fallback: mailboxAddress.includes("@") ? mailboxAddress.split("@").pop() : undefined,
+  validate: (v) =>
+    looksLikeDomainList(v)
+      ? null
+      : "That should be a domain like aglobaltitleagency.com, not a full address or a name.",
+});
+
+await ask({
+  key: "ORG_EMAIL_ADDRESSES",
+  label: "Any staff on a different domain (optional)",
+  help: "Full addresses, comma separated. Press Enter to skip — most offices do.",
+  optional: true,
+});
+
+// --- 3. The AI ---------------------------------------------------------------
+
+console.log("  3. AI");
 console.log("  " + "-".repeat(50));
 
 await ask({
@@ -238,4 +279,8 @@ if (wantsOutlook) {
 } else {
   console.log("    npm run dev           start the app");
 }
+console.log("");
+console.log("  To try it on real email without connecting a mailbox, put");
+console.log("  exported messages in the inbox folder and double-click");
+console.log("  import.cmd. See inbox/README.md for how to export them.");
 console.log("");

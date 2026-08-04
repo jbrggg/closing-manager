@@ -63,3 +63,13 @@ next-env.d.ts
 
 # Stored email attachments - real client documents, never committed
 /storage/
+
+# Exported real email waiting to be imported (npm run import).
+#
+# THIS ONE MATTERS MORE THAN IT LOOKS. Every commit auto-pushes to GitHub
+# (.githooks/post-commit), so an un-ignored folder of exported client mail
+# would be published by the next commit anyone made, without anyone deciding
+# to publish it. The instructions in inbox/README.md are committed; the
+# messages themselves never are.
+/inbox/*
+!/inbox/README.md
