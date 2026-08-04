@@ -20,7 +20,10 @@ to do the real-email validation first, before spending anything.
 
 | Decision | Answer |
 |---|---|
-| Database | **Supabase PostgreSQL.** Settled. Prisma's connector would not connect; that path is closed. |
+| Database | **Supabase PostgreSQL.** Settled twice — the SQLite-on-a-disk alternative was costed in full on 2026-08-04 and rejected. Do not raise it again. Prisma's connector would not connect; that path is closed. |
+| Supabase tier | **Start on the free tier.** Move to Pro ($25/mo) only when one of the triggers below fires. |
+| Protection tooling | **Build it anyway**, on Supabase. Backup/restore page, disk & health panel, spreadsheet export. The owner wants to be able to act without waiting for someone technical. |
+| Mail validation | **Connect the real mailbox. Do not do the forwarding/.eml export exercise.** Entra admin access became available 2026-08-05. Reasoning below. |
 | Connection style | **Supabase's connection pooler** (port 6543) for the app; direct (5432) only for migrations and scripts. |
 | Host | **Render.** ~$7/mo always-on web service + ~$1/mo cron job. Chosen over Vercel because it runs a normal long-lived server — no function time limit on a mail sync that reads fifty messages through an AI — and over Railway for more predictable billing. |
 | Supabase tier | Free tier through the migration and testing. **Pro ($25/mo) from the day it goes live**, because the free tier pauses after seven days idle and its backups are not good enough for a system of record. Both problems arrive on the same day. |
@@ -30,6 +33,58 @@ to do the real-email validation first, before spending anything.
 
 `prisma.compute.json` **is already gone** — deleted in commit `bb53dfa`. If a
 future session is told to delete it, the job is done; say so and move on.
+
+## When the free Supabase tier stops being enough
+
+The owner asked to start free and upgrade only when needed. "Needed" means any
+one of these, and a session that spots one should say so plainly:
+
+- **The database passes about 400 MB** (the free ceiling is 500 MB). Real email
+  bodies plus text extracted from PDFs are what fill it. Check it before Stage 5.
+- **The project pauses and somebody can't work.** Free projects pause after
+  seven days idle. Daily mail sync should prevent that — but a quiet week over
+  a holiday would not.
+- **The day it becomes the live system of record.** Free-tier backups are not
+  adequate for closings data. This is Stage 5, and it is the trigger that will
+  almost certainly fire first.
+
+Nothing before Stage 5 needs the paid tier. The migration and all testing run
+free.
+
+## What an agent can and cannot do with Supabase
+
+**There is no Supabase connector available in this environment.** I checked.
+That means:
+
+- **Can do:** everything that runs over a connection string. Once the owner puts
+  the pooler URL in `.env.local`, an agent can create tables, run the migration,
+  copy the data across, verify row counts, and query it. That covers all of
+  Stages 3 and 4.
+- **Cannot do:** anything that is a click in the Supabase dashboard — restoring
+  the paused project, changing the tier, creating a storage bucket, reading the
+  connection string. Those need the owner, and they should be described as exact
+  clicks, never as "go and configure it".
+
+## Why the mailbox is being connected instead of exporting .eml files
+
+Recorded so it isn't re-argued. The two approaches test **different things**:
+
+- Exporting `.eml` files tests **whether the AI reads mail correctly**. It does
+  not touch the Outlook adapter at all.
+- Connecting the mailbox tests **the adapter — the single largest untested thing
+  in this project — and gives real mail for the AI at the same time.**
+
+With admin access available, the second is strictly better: one exercise instead
+of two, correct incoming/outgoing direction natively (no forwarding wrapper to
+unwrap), a far larger sample, and 45 minutes of manual exporting saved.
+
+The `.eml` import path stays as the fallback if the connection can't be made,
+and as the way to build scorecard cases later. It is not wasted.
+
+**The guardrail that makes this safe:** first contact is
+`npm run sync -- --dry-run`, which fetches and stores mail but runs no AI and
+costs nothing. Then `npm run process -- --limit 10` reads a small batch so the
+first real bill is ten messages, not four hundred. See `CONNECT-MAILBOX.md`.
 
 ## The sequencing argument, recorded so it isn't re-litigated
 
@@ -76,14 +131,21 @@ nothing else changed), then swap the engine.
 
 | Stage | What | Status |
 |---|---|---|
-| **0** | Prove the AI reads real agency email | **In progress — waiting on the owner** |
-| 1 | Housekeeping; stale docs; Postgres test harness | Not started |
+| **0** | **Connect the real mailbox** and judge the AI on what it pulls in | **Next — owner has Entra admin access. Follow `CONNECT-MAILBOX.md`.** |
+| 1 | Housekeeping; stale docs; Postgres test harness (PGlite) | Not started |
 | 2 | Make the data layer async, **keeping SQLite** | Not started |
 | 3 | Swap SQLite for Supabase Postgres behind the same seam | Not started |
-| 4 | Move documents off local disk to cloud storage | Not started |
-| 5 | Deploy to Render over HTTPS — **money starts here** | Not started |
+| 4 | Move documents to Supabase Storage | Not started |
+| 4b | **Protection tooling** — backup/restore page, health panel, spreadsheet export | Not started |
+| 5 | Deploy to Render over HTTPS — **money starts here; Supabase goes Pro here** | Not started |
 | 6 | Harden: rotate demo password, real accounts, scheduled sync, backups **with a restore watched working** | Not started |
-| 7 | Connect the real Outlook mailbox | Not started |
+| 7 | Re-point the mailbox connection at the deployed address | Not started |
+
+Stage 0 moved from "export files" to "connect the mailbox" on 2026-08-04.
+Stage 7 shrank accordingly — the Entra registration happens in Stage 0, so all
+that remains at the end is re-running the consent flow against the deployed URL.
+**That works without another admin visit only if all the redirect URIs were
+registered up front** — which is why `CONNECT-MAILBOX.md` insists on it.
 
 Every stage ends with `npm run verify:full` + `npm run contrast`, then a commit.
 Nothing proceeds on a red build.
@@ -108,17 +170,35 @@ Nothing proceeds on a red build.
   matcher: one message in, facts extracted, two proposals correctly parked in
   the review queue. **No pipeline, prompt, matching or automation change.**
 
-**Outstanding — this is the owner's part, and the next session should ask about
-it first:**
+**Also done (commit pending), for the mailbox route:**
 
-1. Export 15–25 real messages into `inbox/` (see `inbox/README.md`).
-2. Run `setup.cmd` once and answer the new email-domain question.
-3. Double-click `import.cmd`.
-4. Open the review queue and judge the output. **The formal bar is 15 of 20
-   fully correct.**
+- `CONNECT-MAILBOX.md` — the whole Entra registration as exact clicks, the four
+  redirect URIs to register while admin access is available, the read-only
+  permission set, the safe first-contact sequence, and the failure table.
+- `npm run process` (`scripts/process-mail.mts`) — reads stored mail through the
+  AI **in a batch you choose**, default 10. This is the missing half of
+  `sync --dry-run`: fetch for free, then read a small batch so the first real
+  bill is ten messages rather than four hundred. `--dry-run`, `--limit N`,
+  `--all`, `--retry-failed`. Verified on a throwaway database: dry-run lists
+  without spending, a real run processes, and re-running is a clean no-op.
 
-Also watch the `scanned/no text` count in the import log — see Step 1 below for
-why that number is the only evidence that will ever exist about OCR.
+**Outstanding — the owner's part. The next session should ask about this first:**
+
+1. Work through `CONNECT-MAILBOX.md` — Entra registration, `setup.cmd`,
+   `npm run preflight`, connect from the Settings page.
+2. `npm run sync -- --dry-run` — proves the adapter against a live tenant for
+   the first time ever, costs nothing.
+3. `npm run process -- --limit 10` — then read the review queue and judge it.
+   **The formal bar is 15 of 20 fully correct.**
+4. **Record what ten messages cost** from the model provider's usage page.
+   Multiply by daily volume. Nobody has been able to estimate the monthly AI
+   bill yet, and this is the step that produces the number.
+
+Also watch the `scanned/no text` count — see Step 1 below for why that number is
+the only evidence that will ever exist about whether OCR is worth building.
+
+If the connection cannot be made, fall back to the `.eml` import path
+(`inbox/README.md` + `import.cmd`), which is built and smoke-tested.
 
 ## What is NOT being done, and must not start
 

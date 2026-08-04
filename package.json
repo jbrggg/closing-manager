@@ -10,6 +10,7 @@
     "setup": "tsx scripts/setup.mts",
     "preflight": "tsx scripts/preflight.mts",
     "sync": "tsx scripts/sync.mts",
+    "process": "tsx scripts/process-mail.mts",
     "users": "node scripts/manage-users.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
