@@ -8,6 +8,7 @@ import { findBestTransactionMatch, STRONG_MATCH_THRESHOLD, type MatchResult } fr
 import { inferTaskDueDate } from "@/lib/services/office-rules";
 import { maybeAutoApprove } from "@/lib/services/automation";
 import { EmailMessageRow, ExtractedFactRow } from "@/types/models";
+import { withAttachmentText, withAttachmentTextOne } from "@/lib/documents/augment";
 
 const ORG_ID = "org-demo"; // single-tenant demo; organizationId is threaded everywhere for future multi-tenant use
 
@@ -102,10 +103,17 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
   const aiProvider = getActiveAIProvider();
 
   try {
-    const message = get<EmailMessageRow>(`SELECT * FROM EmailMessage WHERE id = ?`, [messageId]);
-    if (!message) throw new Error(`Message ${messageId} not found`);
+    const storedMessage = get<EmailMessageRow>(`SELECT * FROM EmailMessage WHERE id = ?`, [messageId]);
+    if (!storedMessage) throw new Error(`Message ${messageId} not found`);
 
-    const threadMessages = await emailProvider.getMessagesForThread(message.threadId);
+    // Attach the text of any documents that came with these messages, so the
+    // AI can read a closing date that exists only inside the settlement
+    // statement. 16 of 21 real test emails reference an attachment; without
+    // this the AI is marked wrong for not knowing what it was never shown.
+    const message = withAttachmentTextOne(storedMessage);
+    const threadMessages = withAttachmentText(
+      await emailProvider.getMessagesForThread(storedMessage.threadId)
+    );
     recordAudit({
       organizationId: ORG_ID,
       eventType: "email_processed",
@@ -181,8 +189,10 @@ export async function processEmailMessage(messageId: string): Promise<{ jobId: s
         actorType: "AI",
       });
 
-      const perResultFacts = await mapConcurrent(searchResults, MAX_PARALLEL_AI_CALLS, (m) =>
-        aiProvider.extractFacts(m, [])
+      const perResultFacts = await mapConcurrent(
+        withAttachmentText(searchResults),
+        MAX_PARALLEL_AI_CALLS,
+        (m) => aiProvider.extractFacts(m, [])
       );
       searchResults.forEach((m, i) => {
         taggedFacts.push(

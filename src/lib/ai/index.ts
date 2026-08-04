@@ -1,6 +1,7 @@
 import { AIProvider } from "./provider";
 import { aiProvider as simulatedProvider } from "./engine";
 import { createLLMAIProvider } from "./llm-provider";
+import { withRedaction } from "./sanitize";
 
 // -----------------------------------------------------------------------------
 // Provider factory. process-email.ts imports getActiveAIProvider() rather
@@ -16,7 +17,15 @@ import { createLLMAIProvider } from "./llm-provider";
 // .env.local keeps working without being edited.
 // -----------------------------------------------------------------------------
 let cachedLLMProvider: AIProvider | null = null;
+let cachedSimulated: AIProvider | null = null;
 
+/**
+ * EVERY provider returned from here is wrapped in redaction, including the
+ * free rule-based one. Bank details must never reach an evidence summary, a
+ * task title or an audit event, and making that depend on which provider
+ * happens to be configured would be a rule with a hole in it. See
+ * ./sanitize.ts for what is cleaned and, just as importantly, what is not.
+ */
 export function getActiveAIProvider(): AIProvider {
   const configured = process.env.AI_PROVIDER ?? "simulated";
 
@@ -25,13 +34,15 @@ export function getActiveAIProvider(): AIProvider {
       console.warn(
         "[ai-provider] AI_PROVIDER=llm but AI_API_KEY is not set — falling back to the simulated provider."
       );
-      return simulatedProvider;
+      if (!cachedSimulated) cachedSimulated = withRedaction(simulatedProvider);
+      return cachedSimulated;
     }
-    if (!cachedLLMProvider) cachedLLMProvider = createLLMAIProvider();
+    if (!cachedLLMProvider) cachedLLMProvider = withRedaction(createLLMAIProvider());
     return cachedLLMProvider;
   }
 
-  return simulatedProvider;
+  if (!cachedSimulated) cachedSimulated = withRedaction(simulatedProvider);
+  return cachedSimulated;
 }
 
 export { aiProvider } from "./engine";

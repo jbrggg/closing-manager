@@ -102,7 +102,17 @@ CREATE TABLE IF NOT EXISTS EmailAttachment (
   -- SHA-256 of the bytes. Two attachments with the same hash ARE the same
   -- document, which is how "is the HUD they approved the one we sent?"
   -- becomes a comparison rather than an opinion.
-  sha256 TEXT
+  sha256 TEXT,
+  -- Text read out of the document, so the AI can see a closing date that
+  -- exists only inside an attached settlement statement. 16 of 21 real test
+  -- emails reference an attachment. See src/lib/documents/extract-text.ts.
+  extractedText TEXT,
+  -- EXTRACTED | EMPTY | UNSUPPORTED | FAILED.
+  -- EMPTY means a PDF with no text layer, i.e. a scan. That count, measured
+  -- over real mail, is what decides whether OCR is ever worth building --
+  -- so it is recorded rather than treated as a failure.
+  extractionStatus TEXT,
+  pageCount INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS Person (

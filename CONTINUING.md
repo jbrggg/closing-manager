@@ -69,6 +69,18 @@ no amount of hosting fixes that.
 5. Run `npm run import`.
 6. Open the review queue and read what it proposed.
 
+**Attachments are now read.** 16 of the 21 real test emails reference one, so
+this had to exist before the evaluation could be fair — otherwise the AI gets
+marked wrong for not knowing a closing date that only ever existed inside the
+attached settlement statement, and no prompt change can fix that.
+
+The import log now reports `[3 file(s) kept, 2 read, 1 scanned/no text]`.
+**Watch the "scanned/no text" number.** That is the count of documents with no
+text layer, and it is the only evidence that will ever exist for whether OCR is
+worth building. If it stays near zero across your real mail, OCR is a solved
+problem you never had. If it is a third of everything, that changes the answer.
+Nobody can make that call today.
+
 **One trap, already handled but worth understanding.** Forwarding mail to a test
 account would normally break two things: every message would look INCOMING
 (because the envelope sender becomes you), and the real content would sit in the
@@ -192,6 +204,21 @@ built for this swap.
 **Don't turn on automation** because the AI has been right a few times. It ships
 disabled on purpose. Loosen it only with months of evidence, one action type at
 a time, starting with the least destructive.
+
+There is a security reason as well as a quality one, and it is worth stating
+plainly. Email bodies are text written by whoever sent them, fed to an AI —
+which makes them an attack surface. Someone could craft a message designed to
+influence what your system believes about a closing, and title agencies are the
+most-targeted category in the country for exactly that kind of fraud.
+
+Three things currently prevent it: the AI can only emit validated fact types
+and task categories, so it has no vocabulary for "send money"; it has no
+database access, only controlled functions; and **every proposal stops at a
+human.**
+
+That third one is the strongest, and it is the one automation removes. So:
+**hardening against crafted email is a precondition for Phase 2, not a
+follow-up to it.** Treat it as a gate, not a task.
 
 **Don't add a consumer-mail adapter.** Your real target is enterprise mail. The
 import path covers the other case for testing.

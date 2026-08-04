@@ -33,6 +33,7 @@ import { all, get, run, nowIso } from "@/lib/db";
 import { parseEml, splitMbox } from "@/lib/email/eml";
 import { unwrapForwarded, directionFor } from "@/lib/email/forwarded";
 import { getDocumentStore } from "@/lib/storage";
+import { extractDocumentText } from "@/lib/documents/extract-text";
 import { processEmailMessage } from "@/lib/ai/process-email";
 import { recordAudit } from "@/lib/services/audit";
 import { loadEnvLocal } from "./load-env.mts";
@@ -222,13 +223,34 @@ for (const { source, raw } of messages) {
   // Keep the documents, not just the fact that documents existed. In title
   // work the HUD, CPL and commitment ARE the job.
   let storedCount = 0;
+  let readCount = 0;
+  let scanCount = 0;
   for (const att of parsed.attachments) {
     try {
       const doc = await store.put(att.bytes, att.filename);
+      // Read the text now, once, rather than every time the AI looks at this
+      // email. A PDF with no text layer comes back EMPTY rather than failing —
+      // that count is the evidence for whether OCR is ever worth building.
+      const extracted = await extractDocumentText(att.bytes, att.filename, att.mimeType);
+      if (extracted.status === "EXTRACTED") readCount++;
+      if (extracted.status === "EMPTY") scanCount++;
+
       run(
-        `INSERT INTO EmailAttachment (id, messageId, filename, mimeType, sizeBytes, storageKey, sha256)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [randomUUID(), messageId, att.filename, att.mimeType, doc.sizeBytes, doc.storageKey, doc.sha256]
+        `INSERT INTO EmailAttachment (id, messageId, filename, mimeType, sizeBytes, storageKey, sha256,
+                                      extractedText, extractionStatus, pageCount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          messageId,
+          att.filename,
+          att.mimeType,
+          doc.sizeBytes,
+          doc.storageKey,
+          doc.sha256,
+          extracted.text || null,
+          extracted.status,
+          extracted.pageCount,
+        ]
       );
       storedCount++;
     } catch (err) {
@@ -251,7 +273,13 @@ for (const { source, raw } of messages) {
 
   try {
     await processEmailMessage(messageId);
-    console.log(`  ${label}${forwardNote}${storedCount ? `  [${storedCount} file(s) kept]` : ""}`);
+    const docNote = storedCount
+      ? `  [${storedCount} file(s) kept` +
+        (readCount ? `, ${readCount} read` : "") +
+        (scanCount ? `, ${scanCount} scanned/no text` : "") +
+        "]"
+      : "";
+    console.log(`  ${label}${forwardNote}${docNote}`);
     summary.push(`${direction} — ${parsed.subject}`);
     imported++;
   } catch (err) {

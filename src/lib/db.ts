@@ -41,6 +41,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; definition: string }[] 
   // ingested before document storage existed. See src/lib/storage/.
   { table: "EmailAttachment", column: "storageKey", definition: "TEXT" },
   { table: "EmailAttachment", column: "sha256", definition: "TEXT" },
+  // Text read out of the document, and how that went. extractionStatus is the
+  // interesting one: a count of EMPTY over a few weeks of real mail is what
+  // says whether OCR is ever worth building. See src/lib/documents/.
+  { table: "EmailAttachment", column: "extractedText", definition: "TEXT" },
+  { table: "EmailAttachment", column: "extractionStatus", definition: "TEXT" },
+  { table: "EmailAttachment", column: "pageCount", definition: "INTEGER" },
 ];
 
 function applyAdditiveColumns(db: DatabaseSync) {

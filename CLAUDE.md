@@ -120,6 +120,21 @@ Not built:
     removed, so existing evidence links still resolve. Every merge is
     reversible via its `TransactionMerge` record. Don't "simplify" this into
     a delete.
+11. **Redaction happens at the AI provider boundary, and NEVER touches
+    structured values.** `src/lib/ai/sanitize.ts` wraps every provider —
+    including the free rule-based one — so bank details cannot reach an
+    evidence summary, task title or audit event. But `value` on a fact
+    candidate is passed through untouched, because that is where
+    `LOAN_NUMBER` and `FILE_NUMBER` live, and those are worth 50 points
+    against a 60-point matching threshold. Redacting them would break filing
+    and look like an AI accuracy problem. Detection requires a checksum
+    and/or a nearby label, never a digit pattern alone —
+    `tests/redact.test.ts` opens with six tests asserting that ordinary loan
+    and file numbers survive.
+12. **A PDF with no text layer is EMPTY, not FAILED.** That distinction is
+    the only evidence anyone will ever have about whether OCR is worth
+    building. Don't collapse the two statuses.
+
 10. **One lender checklist is one task.** Office rule, decided 2026-07-31 by
     the owner. When one party sends a list of requirements, conditions or
     documents for a single purpose, the AI raises ONE request naming the
