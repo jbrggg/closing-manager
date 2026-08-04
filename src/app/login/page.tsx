@@ -3,6 +3,12 @@ import { getSessionUser } from "@/lib/auth/session";
 import { ensureSeeded } from "@/lib/ensure-seeded";
 import { LoginForm } from "./login-form";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({

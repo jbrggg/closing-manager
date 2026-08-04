@@ -22,6 +22,7 @@
     "import": "tsx scripts/import-mail.mts",
     "backup": "node scripts/backup.mjs",
     "scale-type": "node scripts/scale-type.mjs",
+    "contrast": "node scripts/contrast-check.mjs",
     "export-cases": "tsx scripts/export-cases.mts"
   },
   "dependencies": {

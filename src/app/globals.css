@@ -55,6 +55,11 @@
   --info-bg: #d2e8f6;
   --neutral: #3c4742;        /* grey   — nothing to say about it */
   --neutral-bg: #e2e6e0;
+
+  /* --- keyboard focus ----------------------------------------------------
+     Two colours, not one. See the :focus-visible rule below for why.       */
+  --focus: #0d4a68;          /* dark ring — reads on pale backgrounds */
+  --focus-halo: #ffffff;     /* light halo — reads on the green sidebar */
 }
 
 @theme inline {
@@ -116,11 +121,40 @@ body {
 }
 
 /* Keyboard focus has to be obvious. The browser default 1px outline is
-   effectively invisible to anyone who needed this scale in the first place. */
+   effectively invisible to anyone who needed this scale in the first place.
+
+   TWO-TONE ON PURPOSE. A single dark ring works on white cards and disappears
+   entirely on the dark green sidebar — measured at 1.04:1, which is no
+   indicator at all (`npm run contrast` caught this). A single light ring has
+   the opposite problem on white.
+
+   So: a dark outline with a light halo sitting in the gap behind it. On a pale
+   background the outline reads; on a dark background the halo reads. There is
+   no background in this app where a keyboard user cannot see where they are. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 3px solid var(--info);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-halo);
   border-radius: 3px;
+}
+
+/* Skip link — WCAG 2.4.1. Without it a keyboard or screen-reader user tabs
+   through all eight navigation items before reaching the page content, on
+   every single page. Hidden until focused, then unmissable. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 0.75rem;
+  top: 0.75rem;
+  background: var(--brand);
+  color: var(--on-brand);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
 }
 
 /* Anything clickable is at least ~44px tall — the size an unsteady hand can

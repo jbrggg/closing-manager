@@ -4,6 +4,12 @@ import { PageHeader } from "@/components/ui/layout-primitives";
 import { ReviewQueue } from "./review-queue";
 import { requirePageSession } from "@/lib/auth/guard";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Needs Your Review",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function ReviewPage() {

@@ -6,6 +6,12 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { displayFactValue } from "@/lib/format";
 import { requirePageSession } from "@/lib/auth/guard";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Closing Calendar",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function BoardPage() {

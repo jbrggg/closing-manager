@@ -81,8 +81,8 @@ beforeEach(() => {
   inFlight = 0;
   realFetch = globalThis.fetch;
   process.env.AI_PROVIDER = "llm";
-  process.env.ANTHROPIC_API_KEY = "sk-ant-test-key-not-real";
-  process.env.ANTHROPIC_MODEL = "claude-sonnet-5";
+  process.env.AI_API_KEY = "test-key-not-real";
+  process.env.AI_MODEL = "test-model";
 
   globalThis.fetch = (async (_url: string, init: RequestInit) => {
     inFlight++;
@@ -135,8 +135,8 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = realFetch;
   delete process.env.AI_PROVIDER;
-  delete process.env.ANTHROPIC_API_KEY;
-  delete process.env.ANTHROPIC_MODEL;
+  delete process.env.AI_API_KEY;
+  delete process.env.AI_MODEL;
 });
 
 async function freshPipeline() {

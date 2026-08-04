@@ -175,14 +175,17 @@ console.log("  2. AI");
 console.log("  " + "-".repeat(50));
 
 await ask({
-  key: "ANTHROPIC_API_KEY",
-  label: "Anthropic API key",
-  help: "From platform.claude.com/settings/keys. Leave blank to use the free\n  built-in word-matcher instead (much less accurate).",
+  key: "AI_API_KEY",
+  label: "AI provider API key",
+  help: "From your model provider's console. Leave blank to use the free\n  built-in word-matcher instead (much less accurate).",
   secret: true,
   optional: true,
 });
 
-if (existing.get("ANTHROPIC_API_KEY") || updates.some((u) => u.key === "ANTHROPIC_API_KEY" && u.value)) {
+// The older vendor-specific name is still honoured, so an existing .env.local
+// is not invalidated by having run an older version of this script.
+const hasKey = (k: string) => existing.get(k) || updates.some((u) => u.key === k && u.value);
+if (hasKey("AI_API_KEY") || hasKey("ANTHROPIC_API_KEY")) {
   if ((existing.get("AI_PROVIDER") ?? "") !== "llm") {
     updates.push({ key: "AI_PROVIDER", value: "llm" });
   }

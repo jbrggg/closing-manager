@@ -63,8 +63,12 @@ export function AutomationRules({ initialRules }: { initialRules: Rule[] }) {
             <tr key={r.id}>
               <td className="px-4 py-2.5 font-medium text-ink">{titleCaseEnum(r.actionType)}</td>
               <td className="px-4 py-2.5">
+                {/* The row header naming this rule lives in a different cell,
+                    so on its own this box is announced as "edit number, 0.85"
+                    with no clue which rule it belongs to. WCAG 4.1.2. */}
                 <input
                   type="number"
+                  aria-label={`Minimum confidence for ${titleCaseEnum(r.actionType)}`}
                   min={0}
                   max={1}
                   step={0.01}
@@ -80,6 +84,8 @@ export function AutomationRules({ initialRules }: { initialRules: Rule[] }) {
               <td className="px-4 py-2.5 text-right">
                 <button
                   disabled={pending}
+                  aria-pressed={!!r.enabled}
+                  aria-label={`${r.enabled ? "Turn off" : "Turn on"} automatic ${titleCaseEnum(r.actionType)}`}
                   onClick={() => update(r.actionType, { enabled: !r.enabled })}
                   className={`rounded-sm border px-2.5 py-1 text-[0.9375rem] font-semibold uppercase tracking-wide disabled:opacity-50 ${
                     r.enabled

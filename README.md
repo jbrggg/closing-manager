@@ -12,6 +12,25 @@ for a small PA/NJ title agency, per the project brief. This app — not any
 calendar or title-production system — is the system of record for closings,
 tasks, deadlines, review items, transaction context, and AI activity.
 
+---
+
+## Start here
+
+Four documents, each answering one question. All are written in plain English
+and are deliberately **vendor-neutral** — no AI company, assistant or model is
+named, so they stay accurate whichever provider this is pointed at.
+
+| Document | Answers |
+|---|---|
+| **[REBUILD.md](REBUILD.md)** | *How do I rebuild this from an empty folder?* Every stage in order, every architectural decision and why, the ten invariants, and the traps that each cost a failed attempt. |
+| **[CONTINUING.md](CONTINUING.md)** | *What do I do next?* The remaining work in priority order, what to deliberately not build, and how to brief an AI assistant on this codebase. |
+| **[ACCESSIBILITY.md](ACCESSIBILITY.md)** | *Can everyone actually use this?* A WCAG 2.1 AA audit — 6 issues found, 6 fixed, 32 colour pairings measured. |
+| **[DESIGNING-THE-INTERFACE.md](DESIGNING-THE-INTERFACE.md)** | *How do I change how it looks?* Working on the interface with an AI assistant, and the two settings that are yours alone. |
+
+If you read one, read `CONTINUING.md`. It says where you actually are.
+
+---
+
 ## Status: working vertical slice, Phase 1 (approval-only)
 
 Everything described below is real and runs locally. Nothing here is a mockup
@@ -136,10 +155,10 @@ local demo.
 
 ### Required to use a real LLM instead of the rule-based engine
 
-8. **Get an Anthropic API key** and set `AI_PROVIDER=llm` plus
-   `ANTHROPIC_API_KEY` in `.env.local`. The provider code is complete but has
-   never been run against the live API (no key was available while building),
-   so budget time to watch the first extractions and tune prompts.
+8. **Get an API key from a hosted model provider** and set `AI_PROVIDER=llm`
+   plus `AI_API_KEY` in `.env.local`. The provider code is complete and was
+   first run successfully against a live API on 2026-07-31. Budget time to
+   watch the first extractions and tune prompts.
 
 ### Optional
 
@@ -404,15 +423,16 @@ no call sites change. Copy `.env.example` to `.env.local` first.
 
 ### 1. Real LLM extraction (implemented, needs a key)
 
-`src/lib/ai/llm-provider.ts` is a complete Anthropic-backed implementation
-of the `AIProvider` interface — real `fetch` calls, forced tool-use for
-reliable structured output, and validation of every returned field against
-the same enums the rule-based engine uses (bad values are dropped with a
-warning rather than corrupting the database).
+`src/lib/ai/llm-provider.ts` is a complete implementation of the `AIProvider`
+interface against a hosted model provider — real `fetch` calls, forced
+tool-use for reliable structured output, and validation of every returned
+field against the same enums the rule-based engine uses (bad values are
+dropped with a warning rather than corrupting the database).
 
 ```bash
 AI_PROVIDER=llm
-ANTHROPIC_API_KEY=sk-ant-...
+AI_API_KEY=...
+AI_MODEL=...      # optional
 ```
 
 Falls back to the simulated engine with a console warning if the key is
@@ -620,7 +640,7 @@ src/lib/email/                EmailProvider interface, provider factory,
                                + microsoft-provider (scaffolds)
 src/lib/ai/                   AIProvider interface, provider factory,
                                engine.ts (rule-based, working),
-                               llm-provider.ts (real Anthropic API),
+                               llm-provider.ts (real hosted-model API),
                                matching, process-email orchestrator
 src/lib/auth/                 password hashing, sessions, route guards/RBAC,
                                AES-256-GCM encryption for OAuth tokens

@@ -7,10 +7,10 @@ import { EmailMessageRow } from "@/types/models";
 // how many calls the provider makes and how it handles bad or missing data.
 //
 // The provider is imported fresh in each test (`vi.resetModules`) because it
-// reads ANTHROPIC_API_KEY at construction time and keeps a per-instance cache.
+// reads the API key at construction time and keeps a per-instance cache.
 
-const KEY_ENV = "ANTHROPIC_API_KEY";
-const MODEL_ENV = "ANTHROPIC_MODEL";
+const KEY_ENV = "AI_API_KEY";
+const MODEL_ENV = "AI_MODEL";
 
 interface StubCall {
   system: string;
@@ -336,7 +336,7 @@ describe("failures are never mistaken for empty results", () => {
     }) as unknown as typeof globalThis.fetch;
     const { provider } = await freshProvider();
 
-    await expect(provider.extractFacts(msg(), [])).rejects.toThrow(/ANTHROPIC_API_KEY/);
+    await expect(provider.extractFacts(msg(), [])).rejects.toThrow(/AI_API_KEY/);
     expect(attempts).toBe(1); // a bad key is permanent — do not burn retries on it
   });
 
@@ -368,9 +368,22 @@ describe("failures are never mistaken for empty results", () => {
 
   it("refuses to start without an API key", async () => {
     delete process.env[KEY_ENV];
+    delete process.env.ANTHROPIC_API_KEY;
     vi.resetModules();
     const mod = await import("@/lib/ai/llm-provider");
-    expect(() => mod.createLLMAIProvider()).toThrow(/ANTHROPIC_API_KEY/);
+    expect(() => mod.createLLMAIProvider()).toThrow(/AI_API_KEY/);
+  });
+
+  // The documentation is written with vendor-neutral variable names, but
+  // nobody should have to edit a working .env.local because a document was
+  // rewritten. The old name keeps working; this is that promise, tested.
+  it("still accepts the older vendor-specific key name", async () => {
+    delete process.env[KEY_ENV];
+    process.env.ANTHROPIC_API_KEY = "legacy-key-not-real";
+    vi.resetModules();
+    const mod = await import("@/lib/ai/llm-provider");
+    expect(() => mod.createLLMAIProvider()).not.toThrow();
+    delete process.env.ANTHROPIC_API_KEY;
   });
 });
 

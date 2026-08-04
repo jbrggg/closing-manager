@@ -120,9 +120,16 @@ export function EmailLab() {
           </h2>
 
           <div className="mt-3 space-y-3">
+            {/* Each label is tied to its field with htmlFor/id. Sitting next
+                to a box is not the same as being attached to it: without the
+                pairing a screen reader announces "edit text, blank" and the
+                person has no idea what to type. WCAG 1.3.1 and 3.3.2. */}
             <div>
-              <label className="block text-[1rem] font-medium text-ink">Who sent it</label>
+              <label htmlFor="lab-from" className="block text-[1rem] font-medium text-ink">
+                Who sent it
+              </label>
               <input
+                id="lab-from"
                 value={fromAddress}
                 onChange={(e) => setFromAddress(e.target.value)}
                 placeholder="agent@somerealty.com"
@@ -131,8 +138,11 @@ export function EmailLab() {
             </div>
 
             <div>
-              <label className="block text-[1rem] font-medium text-ink">Subject line</label>
+              <label htmlFor="lab-subject" className="block text-[1rem] font-medium text-ink">
+                Subject line
+              </label>
               <input
+                id="lab-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="RE: 123 Main St closing"
@@ -141,8 +151,11 @@ export function EmailLab() {
             </div>
 
             <div>
-              <label className="block text-[1rem] font-medium text-ink">Email body</label>
+              <label htmlFor="lab-body" className="block text-[1rem] font-medium text-ink">
+                Email body
+              </label>
               <textarea
+                id="lab-body"
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={10}
@@ -151,25 +164,34 @@ export function EmailLab() {
               />
             </div>
 
-            <div>
-              <label className="block text-[1rem] font-medium text-ink">Direction</label>
+            {/* A pair of buttons acting as one either/or choice. Marked up as a
+                radiogroup so it is announced as "Direction, 1 of 2 selected"
+                rather than as two unrelated buttons. */}
+            <div role="radiogroup" aria-labelledby="lab-direction-label">
+              <span id="lab-direction-label" className="block text-[1rem] font-medium text-ink">
+                Direction
+              </span>
               <div className="mt-1 flex gap-2">
                 <button
+                  role="radio"
+                  aria-checked={direction === "INCOMING"}
                   onClick={() => setDirection("INCOMING")}
-                  className={`flex-1 rounded-sm border px-3 py-2 text-[1rem] font-medium ${
+                  className={`flex-1 rounded-lg border-2 px-4 py-3 text-[1.0625rem] font-semibold ${
                     direction === "INCOMING"
-                      ? "border-ink bg-ink text-paper"
-                      : "border-border bg-surface text-ink-muted"
+                      ? "border-brand bg-brand text-on-brand"
+                      : "border-border bg-surface text-ink"
                   }`}
                 >
                   Someone sent it to us
                 </button>
                 <button
+                  role="radio"
+                  aria-checked={direction === "OUTGOING"}
                   onClick={() => setDirection("OUTGOING")}
-                  className={`flex-1 rounded-sm border px-3 py-2 text-[1rem] font-medium ${
+                  className={`flex-1 rounded-lg border-2 px-4 py-3 text-[1.0625rem] font-semibold ${
                     direction === "OUTGOING"
-                      ? "border-ink bg-ink text-paper"
-                      : "border-border bg-surface text-ink-muted"
+                      ? "border-brand bg-brand text-on-brand"
+                      : "border-border bg-surface text-ink"
                   }`}
                 >
                   We sent it

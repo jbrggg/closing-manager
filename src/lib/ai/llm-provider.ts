@@ -2,18 +2,21 @@ import { EmailMessageRow } from "@/types/models";
 import { AIProvider, ExtractedFactCandidate, RequestCandidate } from "./provider";
 
 // -----------------------------------------------------------------------------
-// REAL LLM-BACKED PROVIDER — makes actual network calls to the Anthropic
+// REAL LLM-BACKED PROVIDER — makes actual network calls to a hosted model
 // API. This is not a stub: the request/response handling below is complete.
 // It was first executed successfully against the live API on 2026-07-31
-// (roadmap task A2) using claude-sonnet-5.
+// (roadmap task A2).
 //
 // Enable it by setting in .env.local:
 //   AI_PROVIDER=llm
-//   ANTHROPIC_API_KEY=sk-ant-...
-//   ANTHROPIC_MODEL=claude-sonnet-5     (optional — see docs.claude.com
-//                                        for current model names; this one
-//                                        was verified current on
-//                                        2026-07-31)
+//   AI_API_KEY=...
+//   AI_MODEL=...        (optional — check your provider's current model list;
+//                        model names are retired over time)
+//
+// The endpoint constants below are specific to the provider this was built
+// against. Pointing at a different vendor means changing those constants and
+// the request/response shape in callTool() — the rest of the file, including
+// all validation, is provider-agnostic.
 //
 // Design notes:
 //   - Uses tool_use (forced via tool_choice) instead of asking the model to
@@ -35,12 +38,15 @@ import { AIProvider, ExtractedFactCandidate, RequestCandidate } from "./provider
 //     report what a run actually cost (see getUsageStats()).
 // -----------------------------------------------------------------------------
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
+// Endpoint details for the hosted provider this implementation targets.
+// These three constants, plus the request body in callTool(), are the only
+// vendor-specific parts of the file.
+const API_URL = "https://api.anthropic.com/v1/messages";
+const API_VERSION = "2023-06-01";
 
-/** Verify against https://docs.claude.com — model names change over time.
- *  "claude-sonnet-5" was verified current on 2026-07-31; the previous
- *  default ("claude-sonnet-4-5") is no longer listed as a current model. */
+/** Model names are retired over time — verify against your provider's current
+ *  model list. This one was verified current on 2026-07-31. Override it with
+ *  AI_MODEL in .env.local rather than editing this line. */
 const DEFAULT_MODEL = "claude-sonnet-5";
 
 /** How many analysed messages to remember. Small on purpose — this exists to
@@ -218,22 +224,31 @@ class LLMAIProvider implements AIProvider {
   private readonly analyses = new Map<string, Promise<MessageAnalysis>>();
 
   constructor() {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // NEUTRAL NAMES FIRST, VENDOR NAMES AS A FALLBACK.
+    //
+    // The documentation for this project is written to be portable — it should
+    // read the same whichever hosted model you point it at. So the preferred
+    // variables are AI_API_KEY and AI_MODEL. The older vendor-specific names
+    // are still honoured so that an existing .env.local keeps working; nobody
+    // should have to edit a config file because a document got rewritten.
+    const apiKey = process.env.AI_API_KEY ?? process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error(
-        "LLMAIProvider requires ANTHROPIC_API_KEY to be set. See src/lib/ai/llm-provider.ts header comment."
+        "LLMAIProvider requires AI_API_KEY to be set in .env.local. " +
+          "See the header comment in src/lib/ai/llm-provider.ts."
       );
     }
     this.apiKey = apiKey;
     // NOTE: model names change over time; DEFAULT_MODEL was last verified
-    // against https://docs.claude.com on 2026-07-31. A wrong name produces
-    // an HTTP 400 from the API, which callTool() surfaces verbatim instead
-    // of swallowing.
-    this.modelVersion = process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
-    if (!process.env.ANTHROPIC_MODEL) {
+    // against the provider's published model list on 2026-07-31. A wrong name
+    // produces an HTTP 400, which callTool() surfaces verbatim rather than
+    // swallowing.
+    const configuredModel = process.env.AI_MODEL ?? process.env.ANTHROPIC_MODEL;
+    this.modelVersion = configuredModel ?? DEFAULT_MODEL;
+    if (!configuredModel) {
       console.warn(
-        `[llm-provider] ANTHROPIC_MODEL not set — defaulting to "${DEFAULT_MODEL}". ` +
-          "Verify this is a current model name at https://docs.claude.com/en/docs/about-claude/models"
+        `[llm-provider] AI_MODEL not set — defaulting to "${DEFAULT_MODEL}". ` +
+          "Check your provider's current model list; names are retired over time."
       );
     }
   }
@@ -346,12 +361,12 @@ class LLMAIProvider implements AIProvider {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       let response: Response;
       try {
-        response = await fetch(ANTHROPIC_API_URL, {
+        response = await fetch(API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-api-key": this.apiKey,
-            "anthropic-version": ANTHROPIC_VERSION,
+            "anthropic-version": API_VERSION,
           },
           body: JSON.stringify({
             model: this.modelVersion,
@@ -384,12 +399,12 @@ class LLMAIProvider implements AIProvider {
 
       // Permanent: bad key, bad model name, malformed request. Retrying
       // will not help, so fail immediately with the API's own message —
-      // this is what surfaces a wrong ANTHROPIC_MODEL or an expired key.
+      // this is what surfaces a wrong AI_MODEL or an expired key.
       if (!response.ok) {
         const body = await response.text().catch(() => "");
         throw new Error(
-          `Anthropic API rejected the request (HTTP ${response.status}). ` +
-            `Check ANTHROPIC_API_KEY and ANTHROPIC_MODEL. Response: ${body.slice(0, 400)}`
+          `The model provider rejected the request (HTTP ${response.status}). ` +
+            `Check AI_API_KEY and AI_MODEL in .env.local. Response: ${body.slice(0, 400)}`
         );
       }
 
@@ -414,7 +429,7 @@ class LLMAIProvider implements AIProvider {
     // Every attempt failed. Throw rather than returning null, so the caller
     // cannot mistake an outage for "this email contained nothing."
     throw new Error(
-      `Anthropic API unreachable after ${MAX_ATTEMPTS} attempts (${lastError}). ` +
+      `The model provider was unreachable after ${MAX_ATTEMPTS} attempts (${lastError}). ` +
         `Refusing to report an empty result, because that would look identical to a ` +
         `correctly-read email with no closing details in it.`
     );

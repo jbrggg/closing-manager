@@ -35,7 +35,7 @@ export interface RequestCandidate {
 
 // Contract a real AI-model provider (e.g. an LLM extraction service) would
 // implement. Async because a real implementation makes a network call —
-// see llm-provider.ts for a working Anthropic-backed implementation, and
+// see llm-provider.ts for a working hosted-model implementation, and
 // engine.ts's SimulatedAIProvider for the deterministic rule-based default
 // (its methods are also async, trivially, so both can be used
 // interchangeably through this one interface).

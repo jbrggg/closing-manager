@@ -42,8 +42,8 @@ interface Usage {
 }
 type Batch = { modelVersion: string; usage: Usage; results: EvalCaseResult[] };
 
-/** Published Anthropic pricing per million tokens. Update if pricing changes —
- *  this is only used to print a rough "what did that cost me" line. */
+/** Your provider's published price per million tokens. Update if pricing
+ *  changes — this only prints a rough "what did that cost me" line. */
 const PRICE_PER_MTOK = { input: 3, output: 15 };
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -163,8 +163,8 @@ if (!useSimulated && !wantLLM) {
       "      reality. Set AI_PROVIDER=llm in .env.local to score the real AI.\n"
   );
 }
-if (wantLLM && !process.env.ANTHROPIC_API_KEY) {
-  console.error("AI_PROVIDER=llm but no ANTHROPIC_API_KEY was found in .env.local. Stopping.");
+if (wantLLM && !process.env.AI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+  console.error("AI_PROVIDER=llm but no AI_API_KEY was found in .env.local. Stopping.");
   process.exit(2);
 }
 

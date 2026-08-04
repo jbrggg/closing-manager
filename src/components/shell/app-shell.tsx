@@ -53,7 +53,14 @@ export function AppShell({ user, children }: { user: ShellUser | null; children:
 
   return (
     <div className="flex min-h-screen w-full">
-      <aside className="hidden w-72 shrink-0 flex-col bg-brand md:flex">
+      {/* WCAG 2.4.1. Without this, a keyboard user tabs through all eight
+          navigation links before reaching the page content — on every page,
+          every time. Invisible until focused, then impossible to miss. */}
+      <a href="#main-content" className="skip-link">
+        Skip to the main content
+      </a>
+
+      <aside className="hidden w-72 shrink-0 flex-col bg-brand md:flex" aria-label="Main navigation">
         <div className="flex items-center gap-3 border-b border-white/20 px-6 py-6">
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-on-brand font-serif-head text-[1.25rem] font-bold text-brand">
             KT
@@ -123,7 +130,9 @@ export function AppShell({ user, children }: { user: ShellUser | null; children:
             Sign out
           </button>
         </header>
-        <main className="flex-1 bg-paper">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1 bg-paper">
+          {children}
+        </main>
       </div>
     </div>
   );

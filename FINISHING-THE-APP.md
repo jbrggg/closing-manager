@@ -46,7 +46,7 @@ Now the files are kept. Three things worth knowing about how:
   real database much heavier later.
 - **Swapping to cloud storage later is a config change**, not a rewrite. The
   code asks for "the document store" rather than "the local disk," the same
-  way it asks for "the AI provider" rather than "Anthropic."
+  way it asks for "the AI provider" rather than naming one vendor.
 
 **Attachments now survive email import.** `npm run import` pulls files out of
 your exported emails and stores them.

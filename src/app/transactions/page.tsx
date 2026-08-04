@@ -6,6 +6,12 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { formatRelative } from "@/lib/format";
 import { requirePageSession } from "@/lib/auth/guard";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Files",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {

@@ -4,6 +4,12 @@ import { PageHeader, Panel, EmptyState } from "@/components/ui/layout-primitives
 import { formatDateTime, titleCaseEnum } from "@/lib/format";
 import { requirePageSession } from "@/lib/auth/guard";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "What The AI Did",
+};
+
 export const dynamic = "force-dynamic";
 
 const EVENT_ICON: Record<string, string> = {
